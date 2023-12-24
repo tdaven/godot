@@ -283,7 +283,17 @@ void GroupsEditor::_update_scene_groups(Node *p_node) {
 	}
 }
 
-void GroupsEditor::_cache_scene_groups(Node *p_node) {
+void GroupsEditor::_cache_scene_groups(ObjectID object_id) {
+	Object *object = ObjectDB::get_instance(object_id);
+	if (!object) {
+		return;
+	}
+
+	Node *p_node = Object::cast_to<Node>(object);
+	if(!p_node) {
+		return;
+	}
+
 	const int edited_scene_count = EditorNode::get_editor_data().get_edited_scene_count();
 	for (int i = 0; i < edited_scene_count; i++) {
 		if (p_node == EditorNode::get_editor_data().get_edited_scene_root(i)) {
@@ -803,7 +813,7 @@ void GroupsEditor::_bind_methods() {
 void GroupsEditor::_node_removed(Node *p_node) {
 	if (scene_root_node == p_node) {
 		scene_groups_for_caching = scene_groups;
-		callable_mp(this, &GroupsEditor::_cache_scene_groups).call_deferred(p_node);
+		callable_mp(this, &GroupsEditor::_cache_scene_groups).call_deferred(p_node->get_instance_id());
 		scene_root_node = nullptr;
 	}
 
