@@ -535,9 +535,9 @@ void GridMap::_octant_transform(const OctantKey &p_key) {
 		}
 	}
 
-	for (int i = 0; i < g.multimesh_instances.size(); i++) {
-		RS::get_singleton()->instance_set_transform(g.multimesh_instances[i].instance, get_global_transform());
-	}
+	// for (int i = 0; i < g.multimesh_instances.size(); i++) {
+	// 	RS::get_singleton()->instance_set_transform(g.multimesh_instances[i].instance, get_global_transform());
+	// }
 }
 
 bool GridMap::_octant_update(const OctantKey &p_key) {
@@ -570,11 +570,11 @@ bool GridMap::_octant_update(const OctantKey &p_key) {
 
 	//erase multimeshes
 
-	for (int i = 0; i < g.multimesh_instances.size(); i++) {
-		RS::get_singleton()->free(g.multimesh_instances[i].instance);
-		RS::get_singleton()->free(g.multimesh_instances[i].multimesh);
-	}
-	g.multimesh_instances.clear();
+	// for (int i = 0; i < g.multimesh_instances.size(); i++) {
+	// 	RS::get_singleton()->free(g.multimesh_instances[i].instance);
+	// 	RS::get_singleton()->free(g.multimesh_instances[i].multimesh);
+	// }
+	// g.multimesh_instances.clear();
 
 	if (g.cells.size() == 0) {
 		//octant no longer needed
@@ -684,41 +684,41 @@ bool GridMap::_octant_update(const OctantKey &p_key) {
 
 	//update multimeshes, only if not baked
 	if (baked_meshes.size() == 0) {
-		for (const KeyValue<int, List<Pair<Transform3D, IndexKey>>> &E : multimesh_items) {
-			Octant::MultimeshInstance mmi;
+// 		for (const KeyValue<int, List<Pair<Transform3D, IndexKey>>> &E : multimesh_items) {
+// 			Octant::MultimeshInstance mmi;
 
-			RID mm = RS::get_singleton()->multimesh_create();
-			RS::get_singleton()->multimesh_allocate_data(mm, E.value.size(), RS::MULTIMESH_TRANSFORM_3D);
-			RS::get_singleton()->multimesh_set_mesh(mm, mesh_library->get_item_mesh(E.key)->get_rid());
+// 			RID mm = RS::get_singleton()->multimesh_create();
+// 			RS::get_singleton()->multimesh_allocate_data(mm, E.value.size(), RS::MULTIMESH_TRANSFORM_3D);
+// 			RS::get_singleton()->multimesh_set_mesh(mm, mesh_library->get_item_mesh(E.key)->get_rid());
 
-			int idx = 0;
-			for (const Pair<Transform3D, IndexKey> &F : E.value) {
-				RS::get_singleton()->multimesh_instance_set_transform(mm, idx, F.first);
-#ifdef TOOLS_ENABLED
+// 			int idx = 0;
+// 			for (const Pair<Transform3D, IndexKey> &F : E.value) {
+// 				RS::get_singleton()->multimesh_instance_set_transform(mm, idx, F.first);
+// #ifdef TOOLS_ENABLED
 
-				Octant::MultimeshInstance::Item it;
-				it.index = idx;
-				it.transform = F.first;
-				it.key = F.second;
-				mmi.items.push_back(it);
-#endif
+// 				Octant::MultimeshInstance::Item it;
+// 				it.index = idx;
+// 				it.transform = F.first;
+// 				it.key = F.second;
+// 				mmi.items.push_back(it);
+// #endif
 
-				idx++;
-			}
+// 				idx++;
+// 			}
 
-			RID instance = RS::get_singleton()->instance_create();
-			RS::get_singleton()->instance_set_base(instance, mm);
+// 			RID instance = RS::get_singleton()->instance_create();
+// 			RS::get_singleton()->instance_set_base(instance, mm);
 
-			if (is_inside_tree()) {
-				RS::get_singleton()->instance_set_scenario(instance, get_world_3d()->get_scenario());
-				RS::get_singleton()->instance_set_transform(instance, get_global_transform());
-			}
+// 			if (is_inside_tree()) {
+// 				RS::get_singleton()->instance_set_scenario(instance, get_world_3d()->get_scenario());
+// 				RS::get_singleton()->instance_set_transform(instance, get_global_transform());
+// 			}
 
-			mmi.multimesh = mm;
-			mmi.instance = instance;
+// 			mmi.multimesh = mm;
+// 			mmi.instance = instance;
 
-			g.multimesh_instances.push_back(mmi);
-		}
+// 			g.multimesh_instances.push_back(mmi);
+// 		}
 	}
 
 	if (col_debug.size()) {
@@ -770,10 +770,10 @@ void GridMap::_octant_enter_world(const OctantKey &p_key) {
 		RS::get_singleton()->instance_set_transform(g.collision_debug_instance, get_global_transform());
 	}
 
-	for (int i = 0; i < g.multimesh_instances.size(); i++) {
-		RS::get_singleton()->instance_set_scenario(g.multimesh_instances[i].instance, get_world_3d()->get_scenario());
-		RS::get_singleton()->instance_set_transform(g.multimesh_instances[i].instance, get_global_transform());
-	}
+	// for (int i = 0; i < g.multimesh_instances.size(); i++) {
+	// 	RS::get_singleton()->instance_set_scenario(g.multimesh_instances[i].instance, get_world_3d()->get_scenario());
+	// 	RS::get_singleton()->instance_set_transform(g.multimesh_instances[i].instance, get_global_transform());
+	// }
 
 	if (bake_navigation && mesh_library.is_valid()) {
 		for (KeyValue<IndexKey, Octant::NavigationCell> &F : g.navigation_cell_ids) {
@@ -825,9 +825,9 @@ void GridMap::_octant_exit_world(const OctantKey &p_key) {
 		RS::get_singleton()->instance_set_scenario(g.collision_debug_instance, RID());
 	}
 
-	for (int i = 0; i < g.multimesh_instances.size(); i++) {
-		RS::get_singleton()->instance_set_scenario(g.multimesh_instances[i].instance, RID());
-	}
+	// for (int i = 0; i < g.multimesh_instances.size(); i++) {
+	// 	RS::get_singleton()->instance_set_scenario(g.multimesh_instances[i].instance, RID());
+	// }
 
 	for (KeyValue<IndexKey, Octant::NavigationCell> &F : g.navigation_cell_ids) {
 		if (F.value.region.is_valid()) {
@@ -895,11 +895,11 @@ void GridMap::_octant_clean_up(const OctantKey &p_key) {
 
 	//erase multimeshes
 
-	for (int i = 0; i < g.multimesh_instances.size(); i++) {
-		RS::get_singleton()->free(g.multimesh_instances[i].instance);
-		RS::get_singleton()->free(g.multimesh_instances[i].multimesh);
-	}
-	g.multimesh_instances.clear();
+	// for (int i = 0; i < g.multimesh_instances.size(); i++) {
+	// 	RS::get_singleton()->free(g.multimesh_instances[i].instance);
+	// 	RS::get_singleton()->free(g.multimesh_instances[i].multimesh);
+	// }
+	// g.multimesh_instances.clear();
 }
 
 void GridMap::_notification(int p_what) {
@@ -967,13 +967,13 @@ void GridMap::_update_visibility() {
 		return;
 	}
 
-	for (KeyValue<OctantKey, Octant *> &e : octant_map) {
-		Octant *octant = e.value;
-		for (int i = 0; i < octant->multimesh_instances.size(); i++) {
-			const Octant::MultimeshInstance &mi = octant->multimesh_instances[i];
-			RS::get_singleton()->instance_set_visible(mi.instance, is_visible_in_tree());
-		}
-	}
+	// for (KeyValue<OctantKey, Octant *> &e : octant_map) {
+	// 	Octant *octant = e.value;
+	// 	for (int i = 0; i < octant->multimesh_instances.size(); i++) {
+	// 		const Octant::MultimeshInstance &mi = octant->multimesh_instances[i];
+	// 		RS::get_singleton()->instance_set_visible(mi.instance, is_visible_in_tree());
+	// 	}
+	// }
 
 	for (int i = 0; i < baked_meshes.size(); i++) {
 		RS::get_singleton()->instance_set_visible(baked_meshes[i].instance, is_visible_in_tree());

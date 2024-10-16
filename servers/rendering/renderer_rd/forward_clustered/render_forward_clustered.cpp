@@ -756,6 +756,9 @@ void RenderForwardClustered::_fill_instance_data(RenderListType p_render_list, i
 
 		bool cant_repeat = instance_data.flags & INSTANCE_DATA_FLAG_MULTIMESH || inst->mesh_instance.is_valid();
 
+		fprintf(stderr, "fill_instance_data multimesh=%i\n", 
+			!!(instance_data.flags & INSTANCE_DATA_FLAG_MULTIMESH));
+
 		if (prev_surface != nullptr && !cant_repeat && prev_surface->sort.sort_key1 == surface->sort.sort_key1 && prev_surface->sort.sort_key2 == surface->sort.sort_key2 && inst->mirror == prev_surface->owner->mirror && repeats < RenderElementInfo::MAX_REPEATS) {
 			//this element is the same as the previous one, count repeats to draw it using instancing
 			repeats++;
@@ -805,7 +808,8 @@ _FORCE_INLINE_ static uint32_t _indices_to_primitives(RS::PrimitiveType p_primit
 void RenderForwardClustered::_fill_render_list(RenderListType p_render_list, const RenderDataRD *p_render_data, PassMode p_pass_mode, bool p_using_sdfgi, bool p_using_opaque_gi, bool p_using_motion_pass, bool p_append) {
 	RendererRD::MeshStorage *mesh_storage = RendererRD::MeshStorage::get_singleton();
 	uint64_t frame = RSG::rasterizer->get_frame_number();
-
+	fprintf(stderr, "_fill_render_list %lu\n", frame);
+	
 	if (p_render_list == RENDER_LIST_OPAQUE) {
 		scene_state.used_sss = false;
 		scene_state.used_screen_texture = false;

@@ -102,19 +102,19 @@ class GridMap : public Node3D {
 			uint32_t navigation_layers = 1;
 		};
 
-		struct MultimeshInstance {
-			RID instance;
-			RID multimesh;
-			struct Item {
-				int index = 0;
-				Transform3D transform;
-				IndexKey key;
-			};
+		// struct MultimeshInstance {
+		// 	RID instance;
+		// 	RID multimesh;
+		// 	struct Item {
+		// 		int index = 0;
+		// 		Transform3D transform;
+		// 		IndexKey key;
+		// 	};
 
-			Vector<Item> items; //tools only, for changing visibility
-		};
+		// 	Vector<Item> items; //tools only, for changing visibility
+		// };
 
-		Vector<MultimeshInstance> multimesh_instances;
+		// Vector<MultimeshInstance> multimesh_instances;
 		HashSet<IndexKey> cells;
 		RID collision_debug;
 		RID collision_debug_instance;
