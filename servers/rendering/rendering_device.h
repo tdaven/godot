@@ -1578,6 +1578,7 @@ public:
 	uint64_t get_device_allocation_count() const;
 	uint64_t get_device_memory_by_object_type(uint32_t p_type) const;
 	uint64_t get_device_allocs_by_object_type(uint32_t p_type) const;
+	Dictionary get_memory_budget() const;
 
 	static RenderingDevice *get_singleton();
 

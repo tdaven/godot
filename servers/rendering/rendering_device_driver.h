@@ -819,6 +819,8 @@ public:
 
 	virtual bool is_composite_alpha_supported(CommandQueueID p_queue) const { return false; }
 
+	virtual Dictionary get_memory_budget() const = 0;
+
 	/******************/
 
 	virtual ~RenderingDeviceDriver();
