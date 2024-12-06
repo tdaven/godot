@@ -513,6 +513,7 @@ Error RenderingDeviceDriverVulkan::_initialize_device_extensions() {
 	_register_requested_device_extension(VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME, false);
 	_register_requested_device_extension(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME, false);
 	_register_requested_device_extension(VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME, false);
+	_register_requested_device_extension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME, false);
 
 	if (Engine::get_singleton()->is_generate_spirv_debug_info_enabled()) {
 		_register_requested_device_extension(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME, true);
@@ -5748,7 +5749,49 @@ uint64_t RenderingDeviceDriverVulkan::get_resource_native_handle(DriverResource 
 uint64_t RenderingDeviceDriverVulkan::get_total_memory_used() {
 	VmaTotalStatistics stats = {};
 	vmaCalculateStatistics(allocator, &stats);
-	return stats.total.statistics.allocationBytes;
+	return stats.total.statistics.blockBytes;
+}
+
+Dictionary RenderingDeviceDriverVulkan::get_memory_budget() const {
+	Dictionary memory_budget;
+	if (enabled_device_extension_names.has(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+		VkPhysicalDeviceMemoryBudgetPropertiesEXT physical_device_memory_budget_properties{};
+		VkPhysicalDeviceMemoryProperties2 device_memory_properties{};
+		// Initialize physical device memory budget properties structures variables
+		physical_device_memory_budget_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+		physical_device_memory_budget_properties.pNext = nullptr;
+
+		// Initialize physical device memory properties structure variables
+		device_memory_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+		device_memory_properties.pNext = &physical_device_memory_budget_properties;
+		vkGetPhysicalDeviceMemoryProperties2(physical_device, &device_memory_properties);
+
+		uint32_t device_memory_heap_count = device_memory_properties.memoryProperties.memoryHeapCount;
+		uint64_t device_memory_gpumem_total_usage = 0;
+		uint64_t device_memory_gpumem_total_budget = 0;
+		uint64_t device_memory_sysmem_total_usage = 0;
+		uint64_t device_memory_sysmem_total_budget = 0;
+		uint64_t device_memory_total = 0;
+		for (uint32_t i = 0; i < device_memory_heap_count; i++) {
+			if (device_memory_properties.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+				device_memory_gpumem_total_usage += physical_device_memory_budget_properties.heapUsage[i];
+				device_memory_gpumem_total_budget += physical_device_memory_budget_properties.heapBudget[i];
+				device_memory_total += device_memory_properties.memoryProperties.memoryHeaps[i].size;
+
+			} else {
+				device_memory_sysmem_total_usage += physical_device_memory_budget_properties.heapUsage[i];
+				device_memory_sysmem_total_budget += physical_device_memory_budget_properties.heapBudget[i];
+			}
+		}
+
+		memory_budget["host_used"] = device_memory_sysmem_total_usage;
+		memory_budget["host_budget"] = device_memory_sysmem_total_budget;
+		memory_budget["device_used"] = device_memory_gpumem_total_usage;
+		memory_budget["device_budget"] = device_memory_gpumem_total_budget;
+		memory_budget["device_total"] = device_memory_total;
+	}
+
+	return memory_budget;
 }
 
 uint64_t RenderingDeviceDriverVulkan::get_lazily_memory_used() {

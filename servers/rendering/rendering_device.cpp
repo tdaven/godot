@@ -1486,6 +1486,7 @@ Error RenderingDevice::_texture_initialize(RID p_texture, uint32_t p_layer, cons
 				}
 
 				staging_local_offset += to_allocate;
+				// fprintf(stderr, "to_allocate=%u staging_local_offset=%u\n", to_allocate, staging_local_offset);
 			}
 
 			mipmap_offset = image_total;
@@ -6318,6 +6319,10 @@ uint64_t RenderingDevice::get_memory_usage(MemoryType p_type) const {
 	}
 }
 
+Dictionary RenderingDevice::get_memory_budget() const {
+	return driver->get_memory_budget();
+}
+
 void RenderingDevice::_begin_frame(bool p_presented) {
 	// Before writing to this frame, wait for it to be finished.
 	_stall_for_frame(frame);
@@ -7375,6 +7380,7 @@ void RenderingDevice::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_device_pipeline_cache_uuid"), &RenderingDevice::get_device_pipeline_cache_uuid);
 
 	ClassDB::bind_method(D_METHOD("get_memory_usage", "type"), &RenderingDevice::get_memory_usage);
+	ClassDB::bind_method(D_METHOD("get_memory_budget"), &RenderingDevice::get_memory_budget);
 
 	ClassDB::bind_method(D_METHOD("get_driver_resource", "resource", "rid", "index"), &RenderingDevice::get_driver_resource);
 
