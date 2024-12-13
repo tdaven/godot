@@ -111,6 +111,9 @@ public:
 	virtual bool material_casts_shadows(RID p_material) override { return false; }
 	virtual void material_get_instance_shader_parameters(RID p_material, List<InstanceShaderParam> *r_parameters) override {}
 	virtual void material_update_dependency(RID p_material, DependencyTracker *p_instance) override {}
+	virtual void material_set_lod(RID p_material, uint64_t frame, int lod) override {
+		fprintf(stderr, "material set lod: %i\n", lod);
+	}
 };
 
 } // namespace RendererDummy

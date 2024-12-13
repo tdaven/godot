@@ -35,6 +35,8 @@
 #include "material_storage.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 
+#include "core/object/worker_thread_pool.h"
+
 using namespace RendererRD;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1305,6 +1307,67 @@ void TextureStorage::texture_2d_update(RID p_texture, const Ref<Image> &p_image,
 	_texture_2d_update(p_texture, p_image, p_layer, false);
 }
 
+// struct TextureReload {
+// 	RID texture;
+// 	int lod;
+// };
+
+// void TextureStorage::handle_texture_reload(void* data) {
+// 	TextureReload * reload  = static_cast<TextureReload*>(data);
+// 	String path = RS::get_singleton()->texture_get_path(reload->texture);
+// 	fprintf(stderr, "reload %s %i\n", path.utf8().get_data(), reload->lod);
+
+// 	Ref<Resource> new_texture = ResourceLoader::load(path, "", ResourceFormatLoader::CACHE_MODE_REPLACE_DEEP);
+// 	RS::get_singleton()->texture_replace(reload->texture, new_texture->get_rid());
+// 	RS::get_singleton()->texture_set_path(reload->texture, path);
+// 	// ResourceLoader.load_threaded_request(path,"Derp", false, ResourceLoader.CACHE_MODE_REPLACE);
+
+// 	memfree(reload);
+// }
+
+// void TextureStorage::texture_set_lod(RID p_texture, int lod) {
+// 	Texture *tex = texture_owner.get_or_null(p_texture);
+// 	ERR_FAIL_NULL(tex);
+
+// 	if(lod != tex->texture_lod) {
+// 		tex->texture_lod = lod;
+// 		tex->texture_lod_dirty = true;
+// 		fprintf(stderr, "new texture lod: %i\n", lod);
+// 		TextureReload * reload = memnew(TextureReload);
+// 		reload->texture = p_texture;
+// 		reload->lod = lod;
+// 		WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, reload);
+
+// 	}
+// }
+
+// void TextureStorage::texture_update_lod(RID p_texture) {
+
+// 	Texture *tex = texture_owner.get_or_null(p_texture);
+// 	ERR_FAIL_NULL(tex);
+// 	if(tex->texture_lod_dirty) {
+// 		tex->texture_lod_dirty = false;
+// 		fprintf(stderr, "start a reload here: %i\n", tex->texture_lod);
+// 	}
+// }
+
+void TextureStorage::texture_set_lod(RID p_texture, uint64_t frame, int p_lod) {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_NULL(tex);
+	// fprintf(stderr, "texture_set_lod:%li %i\n", p_texture.get_id(), p_lod);
+	if (tex->lod_callback) {
+		tex->lod_callback(frame, p_lod, tex->lod_callback_ud);
+	}
+}
+
+void TextureStorage::texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_NULL(tex);
+	// fprintf(stderr, "texture_set_lod_callback:%li\n", p_texture.get_id());
+	tex->lod_callback = p_callback;
+	tex->lod_callback_ud = p_userdata;
+}
+
 void TextureStorage::texture_3d_update(RID p_texture, const Vector<Ref<Image>> &p_data) {
 	Texture *tex = texture_owner.get_or_null(p_texture);
 	ERR_FAIL_NULL(tex);
@@ -1516,6 +1579,7 @@ Vector<Ref<Image>> TextureStorage::texture_3d_get(RID p_texture) const {
 }
 
 void TextureStorage::texture_replace(RID p_texture, RID p_by_texture) {
+	fprintf(stderr, "texture_replace %lu %lu\n", p_texture.get_id(), p_by_texture.get_id());
 	Texture *tex = texture_owner.get_or_null(p_texture);
 	ERR_FAIL_NULL(tex);
 	ERR_FAIL_COND(tex->proxy_to.is_valid()); //can't replace proxy
@@ -1573,12 +1637,17 @@ void TextureStorage::texture_set_path(RID p_texture, const String &p_path) {
 	Texture *tex = texture_owner.get_or_null(p_texture);
 	ERR_FAIL_NULL(tex);
 
+	fprintf(stderr, "texture_set_path %lu %s\n", p_texture.get_id(), (char *)p_path.utf8().get_data());
 	tex->path = p_path;
 }
 
 String TextureStorage::texture_get_path(RID p_texture) const {
 	Texture *tex = texture_owner.get_or_null(p_texture);
-	ERR_FAIL_NULL_V(tex, String());
+	fprintf(stderr, "texture_get_path %lu\n", p_texture.get_id());
+	if (!tex) {
+		return String();
+		// ERR_FAIL_NULL_V(tex, String());
+	}
 
 	return tex->path;
 }

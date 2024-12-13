@@ -460,6 +460,7 @@ public:
 		r_index_count = s->index_count;
 		for (uint32_t i = 0; i < s->lod_count; i++) {
 			float screen_size = s->lods[i].edge_length * p_model_scale / p_distance_threshold;
+			// fprintf(stderr, "screen_size %f\n", screen_size);
 			if (screen_size > p_mesh_lod_threshold) {
 				break;
 			}

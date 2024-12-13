@@ -848,6 +848,7 @@ void MaterialStorage::MaterialData::update_textures(const HashMap<StringName, Va
 
 	bool uses_global_textures = false;
 	global_textures_pass++;
+	lod_texture_cache.clear();
 
 	for (int i = 0, k = 0; i < p_texture_uniforms.size(); i++) {
 		const StringName &uniform_name = p_texture_uniforms[i].name;
@@ -1034,6 +1035,7 @@ void MaterialStorage::MaterialData::update_textures(const HashMap<StringName, Va
 				p_textures[k++] = rd_texture;
 			}
 		}
+		lod_texture_cache.append_array(textures);
 	}
 	{
 		//for textures no longer used, unregister them
@@ -2426,4 +2428,17 @@ void MaterialStorage::material_set_data_request_function(ShaderType p_shader_typ
 MaterialStorage::MaterialDataRequestFunction MaterialStorage::material_get_data_request_function(ShaderType p_shader_type) {
 	ERR_FAIL_INDEX_V(p_shader_type, SHADER_TYPE_MAX, nullptr);
 	return material_data_request_func[p_shader_type];
+}
+
+void MaterialStorage::material_set_lod(RID p_material, uint64_t frame, int lod) {
+	Material *material = material_owner.get_or_null(p_material);
+	if (!material)
+		return;
+
+	if (material->data && !material->data->lod_texture_cache.is_empty()) {
+		for (uint32_t i = 0; i < material->data->lod_texture_cache.size(); i++) {
+			RID tex_rid = material->data->lod_texture_cache[i];
+			RSG::texture_storage->texture_set_lod(tex_rid, frame, lod);
+		}
+	}
 }

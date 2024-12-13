@@ -74,12 +74,73 @@ private:
 	static void _requested_roughness(void *p_ud, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);
 	static void _requested_normal(void *p_ud);
 
+	void derp() {
+		load(path_to_file);
+	}
+
+	static void handle_texture_reload(void *data) {
+		CompressedTexture2D *_this = static_cast<CompressedTexture2D *>(data);
+		_this->derp();
+	}
+
+	int _min_lod = 14;
+	int _tmp_min_lod = -1;
+	uint64_t prev_frame = 0;
+	void lod_callback2(uint64_t frame, int p_lod) {
+		bool reload = false;
+		if (frame != prev_frame) {
+			prev_frame = frame;
+			if (_min_lod != _tmp_min_lod) {
+				reload = true;
+				_min_lod = _tmp_min_lod;
+			}
+			_tmp_min_lod = 14;
+		}
+
+		if (frame == prev_frame && p_lod < _tmp_min_lod) {
+			_tmp_min_lod = p_lod;
+		}
+
+		if (texture.is_valid() && reload) {
+			// fprintf(stderr, "starting reload %i\n", _min_lod);
+			// reload_from_file();
+			// TextureReload * reload = memnew(TextureReload);
+			// reload->texture = p_texture;
+			// reload->lod = lod;
+			// WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, this);
+			// derp();
+		}
+
+		// uint64_t ticks = OS::get_ticks_msec()
+
+		// if((ticks - _lod_tick) >= 1000){
+		// 	_lod_tick = ticks;
+
+		// 	_min_lod = -1;
+		// }
+
+		// if(p_lod != _min_lod)
+	}
+
+	static void lod_callback(uint64_t frame, int p_lod, void *p_userdata) {
+		CompressedTexture2D *_this = reinterpret_cast<CompressedTexture2D *>(p_userdata);
+		_this->lod_callback2(frame, p_lod);
+	}
+
+	bool can_load_miplevel(int m) {
+		if (_min_lod != -1 && m >= _min_lod) {
+			return true;
+		}
+
+		return false;
+	}
+
 protected:
 	static void _bind_methods();
 	void _validate_property(PropertyInfo &p_property) const;
 
 public:
-	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit);
+	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit, int p_min_lod = 0);
 
 	typedef void (*TextureFormatRequestCallback)(const Ref<CompressedTexture2D> &);
 	typedef void (*TextureFormatRoughnessRequestCallback)(const Ref<CompressedTexture2D> &, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);

@@ -1040,6 +1040,21 @@ void RenderForwardClustered::_fill_render_list(RenderListType p_render_list, con
 			lod_distance = surface_distance.length();
 		}
 
+		{
+			if (inst->data && inst->data->base_type == RS::INSTANCE_MESH) {
+				Vector3 aabb_min = inst->transformed_aabb.position;
+				Vector3 aabb_max = inst->transformed_aabb.position + inst->transformed_aabb.size;
+				Vector3 camera_position = p_render_data->scene_data->main_cam_transform.origin;
+				Vector3 surface_distance = Vector3(0.0, 0.0, 0.0).max(aabb_min - camera_position).max(camera_position - aabb_max);
+				float lod = surface_distance.length() / (aabb_max - aabb_min).length();
+				uint32_t surface_count;
+				const RID *materials = mesh_storage->mesh_get_surface_count_and_materials(inst->data->base, surface_count);
+				for (uint32_t j = 0; j < surface_count; j++) {
+					RSG::material_storage->material_set_lod(materials[j], frame, lod);
+				}
+			}
+		}
+
 		while (surf) {
 			surf->sort.uses_forward_gi = 0;
 			surf->sort.uses_lightmap = 0;
@@ -1048,6 +1063,7 @@ void RenderForwardClustered::_fill_render_list(RenderListType p_render_list, con
 			if (p_render_data->scene_data->screen_mesh_lod_threshold > 0.0 && mesh_storage->mesh_surface_has_lod(surf->surface)) {
 				uint32_t indices = 0;
 				surf->sort.lod_index = mesh_storage->mesh_surface_get_lod(surf->surface, inst->lod_model_scale * inst->lod_bias, lod_distance * p_render_data->scene_data->lod_distance_multiplier, p_render_data->scene_data->screen_mesh_lod_threshold, indices);
+				// fprintf(stderr, "lod_index=%i\n", surf->sort.lod_index);
 				if (p_render_data->render_info) {
 					indices = _indices_to_primitives(surf->primitive, indices);
 					if (p_render_list == RENDER_LIST_OPAQUE) { //opaque
@@ -1068,6 +1084,16 @@ void RenderForwardClustered::_fill_render_list(RenderListType p_render_list, con
 						p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_SHADOW][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME] += to_draw;
 					}
 				}
+			}
+
+			{
+				// uint32_t surface_count = 0;
+				// const RID * materials = mesh_storage->mesh_get_surface_count_and_materials(inst->data->base, surface_count);
+				// for(uint32_t i = 0; i < surface_count; i++)
+				// {
+				// 	RID r = materials[i];
+				// 	RendererRD::MaterialStorage::get_singleton()->material_set_lod(r, 0);
+				// }
 			}
 
 			// ADD Element

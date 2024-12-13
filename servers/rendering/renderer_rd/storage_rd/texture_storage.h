@@ -187,6 +187,9 @@ private:
 		RS::TextureDetectRoughnessCallback detect_roughness_callback = nullptr;
 		void *detect_roughness_callback_ud = nullptr;
 
+		RS::TextureLodCallback lod_callback = nullptr;
+		void *lod_callback_ud = nullptr;
+
 		CanvasTexture *canvas_texture = nullptr;
 
 		void cleanup();
@@ -518,6 +521,13 @@ public:
 	virtual void texture_3d_update(RID p_texture, const Vector<Ref<Image>> &p_data) override;
 	virtual void texture_external_update(RID p_texture, int p_width, int p_height, uint64_t p_external_buffer) override;
 	virtual void texture_proxy_update(RID p_proxy, RID p_base) override;
+
+	// void texture_set_lod(RID p_texture, int lod);
+	// void texture_update_lod(RID p_texture);
+	// static void handle_texture_reload(void* data);
+
+	virtual void texture_set_lod(RID p_texture, uint64_t frame, int p_lod) override;
+	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override;
 
 	Ref<Image> texture_2d_placeholder;
 	Vector<Ref<Image>> texture_2d_array_placeholder;

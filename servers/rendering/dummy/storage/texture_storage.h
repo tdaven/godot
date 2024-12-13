@@ -210,6 +210,9 @@ public:
 
 	virtual void render_target_set_velocity_target_size(RID p_render_target, const Size2i &p_target_size) override {}
 	virtual Size2i render_target_get_velocity_target_size(RID p_render_target) const override { return Size2i(0, 0); }
+
+	virtual void texture_set_lod(RID p_texture, uint64_t frame, int lod) override {}
+	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override {}
 };
 
 } // namespace RendererDummy
