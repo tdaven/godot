@@ -234,6 +234,10 @@ public:
 	FUNC2RC(RID, texture_get_rd_texture, RID, bool)
 	FUNC2RC(uint64_t, texture_get_native_handle, RID, bool)
 
+	FUNC3(texture_set_lod, RID, uint64_t, float);
+	FUNC3(texture_set_lod2, RID, uint64_t, float);
+	FUNC3(texture_set_lod_callback, RID, TextureLodCallback, void *);
+
 	/* SHADER API */
 
 #undef ServerName
@@ -372,6 +376,8 @@ public:
 
 	FUNC2(mesh_set_path, RID, const String &)
 	FUNC1RC(String, mesh_get_path, RID)
+
+	FUNC2(mesh_update_material_lod, RID, float)
 
 	FUNC2(mesh_set_shadow_mesh, RID, RID)
 

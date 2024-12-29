@@ -3565,6 +3565,42 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	for (uint32_t i = 0; i < cull.sdfgi.region_count; i++) {
 		render_sdfgi_data[i].instances.clear();
 	}
+
+	{
+		uint64_t frame = RSG::rasterizer->get_frame_number();
+		uint64_t p_from = 0;
+		uint64_t p_to = scenario->instance_data.size();
+		for (uint64_t i = p_from; i < p_to; i++) {
+			InstanceData &idata = scenario->instance_data[i];
+
+			// if (!(idata.flags & InstanceData::FLAG_USES_MESH_INSTANCE)) {
+			// 	continue;
+			// }
+
+			uint32_t base_type = idata.flags & InstanceData::FLAG_BASE_TYPE_MASK;
+			if (base_type != RS::INSTANCE_MESH) {
+				continue;
+			}
+
+			if (!((1 << base_type) & RS::INSTANCE_GEOMETRY_MASK)) {
+				continue;
+			}
+
+			Instance *inst = idata.instance;
+			Vector3 aabb_min = inst->transformed_aabb.position;
+			Vector3 aabb_max = inst->transformed_aabb.position + inst->transformed_aabb.size;
+			float surface_distance = Vector3(0.0, 0.0, 0.0).max(aabb_min - camera_position).max(camera_position - aabb_max).length_squared();
+			// float surface_distance = (inst->transformed_aabb.get_center() - camera_position).length();
+			float radius = (inst->transformed_aabb.get_center() - inst->transformed_aabb.position).length_squared();
+			float theta = 2.0f * atanf(radius / surface_distance);
+			float theta_deg = Math::rad_to_deg(theta); 
+			float size = theta_deg / p_camera_data->main_projection.get_fov();
+			size = CLAMP(size, 0.0f, 1.0f);
+			float xxx = pow(size, 0.1f);
+			xxx = floor(14.0f * xxx);
+			RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, xxx);
+		}
+	}
 }
 
 RID RendererSceneCull::_render_get_environment(RID p_camera, RID p_scenario) {

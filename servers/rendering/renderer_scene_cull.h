@@ -445,6 +445,7 @@ public:
 		bool on_interpolate_transform_list : 1;
 		bool interpolated : 1;
 		TransformInterpolator::Method interpolation_method : 3;
+		// TODO - Add flag to disable material lod for this mesh.
 
 		// For fixed timestep interpolation.
 		// Note 32 bits is plenty for checksum, no need for real_t

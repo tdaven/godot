@@ -31,6 +31,9 @@
 #include "compressed_texture.h"
 
 #include "scene/resources/bit_map.h"
+#include "servers/rendering/rendering_server_globals.h"
+
+WorkerThreadPool::TaskID CompressedTexture2D::reload_task = WorkerThreadPool::INVALID_TASK_ID;
 
 Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r_height, Ref<Image> &image, bool &r_request_3d, bool &r_request_normal, bool &r_request_roughness, int &mipmap_limit, int p_size_limit) {
 	alpha_cache.unref();
@@ -79,7 +82,9 @@ Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r
 		p_size_limit = 0;
 	}
 
-	image = load_image_from_file(f, p_size_limit);
+	image = load_image_from_file(f, p_size_limit, 14.0f - _min_lod);
+
+	fprintf(stderr, "mipmaps=%i\n", image->get_mipmap_count());
 
 	if (image.is_null() || image->is_empty()) {
 		return ERR_CANT_OPEN;
@@ -146,8 +151,13 @@ Error CompressedTexture2D::load(const String &p_path) {
 	} else {
 		texture = RS::get_singleton()->texture_2d_create(image);
 	}
+
 	if (lw || lh) {
 		RS::get_singleton()->texture_set_size_override(texture, lw, lh);
+	}
+
+	if (image->get_mipmap_count() > 0) {
+		RS::get_singleton()->texture_set_lod_callback(texture, lod_callback, this);
 	}
 
 	w = lw;
@@ -296,7 +306,7 @@ void CompressedTexture2D::reload_from_file() {
 void CompressedTexture2D::_validate_property(PropertyInfo &p_property) const {
 }
 
-Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_size_limit) {
+Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_size_limit, int p_min_lod) {
 	uint32_t data_format = f->get_32();
 	uint32_t w = f->get_16();
 	uint32_t h = f->get_16();
@@ -422,16 +432,29 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	} else if (data_format == DATA_FORMAT_IMAGE) {
 		int size = Image::get_image_data_size(w, h, format, mipmaps ? true : false);
 
-		for (uint32_t i = 0; i < mipmaps + 1; i++) {
+		if (p_min_lod == -1) {
+			p_min_lod = mipmaps > 1 ? mipmaps - 1 : mipmaps;
+		}
+
+		p_min_lod = CLAMP(p_min_lod, 0, mipmaps);
+		for (uint32_t i = 0; i < p_min_lod + 1; i++) {
 			int tw, th;
 			int ofs = Image::get_image_mipmap_offset_and_dimensions(w, h, format, i, tw, th);
 
 			if (p_size_limit > 0 && i < mipmaps && (p_size_limit > tw || p_size_limit > th)) {
-				if (ofs) {
-					f->seek(f->get_position() + ofs);
-				}
 				continue; //oops, size limit enforced, go to next
 			}
+
+			// if (p_max_size > 0 && i < mipmaps && (p_max_size < tw || p_max_size < th)) {
+			// 	continue; // mip level is larger then the allowed max size
+			// }
+
+			if (p_min_lod < mipmaps && p_min_lod >= 0 && (int)i < p_min_lod) {
+				fprintf(stderr, "skipping mip level %i [%i %i]\n", i, p_min_lod, mipmaps);
+				continue;
+			}
+
+			f->seek(f->get_position() + ofs);
 
 			Vector<uint8_t> data;
 			data.resize(size - ofs);

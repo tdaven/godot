@@ -186,6 +186,15 @@ private:
 		RS::TextureDetectRoughnessCallback detect_roughness_callback = nullptr;
 		void *detect_roughness_callback_ud = nullptr;
 
+		RS::TextureLodCallback lod_callback = nullptr;
+		void *lod_callback_ud = nullptr;
+		float min_lod = 1.0f;
+		float max_lod = 0.0f;
+
+		float tmp_min_lod = 1.0f;
+		float tmp_max_lod = 0.0f;
+		uint64_t lod_cycle = 0;
+
 		CanvasTexture *canvas_texture = nullptr;
 
 		void cleanup();
@@ -194,6 +203,11 @@ private:
 	// Textures can be created from threads, so this RID_Owner is thread safe.
 	mutable RID_Owner<Texture, true> texture_owner;
 	Texture *get_texture(RID p_rid) { return texture_owner.get_or_null(p_rid); }
+
+	Mutex lod_reload_mutex;
+	List<RID> lod_reload_list;
+
+	static void handle_texture_reload(void* data);
 
 	struct TextureToRDFormat {
 		RD::DataFormat format;
@@ -517,6 +531,13 @@ public:
 	virtual void texture_3d_update(RID p_texture, const Vector<Ref<Image>> &p_data) override;
 	virtual void texture_external_update(RID p_texture, int p_width, int p_height, uint64_t p_external_buffer) override;
 	virtual void texture_proxy_update(RID p_proxy, RID p_base) override;
+
+	// void texture_set_lod(RID p_texture, int lod);
+	// void texture_update_lod(RID p_texture);
+
+	virtual void texture_set_lod(RID p_texture, uint64_t p_frame, float p_lod) override;
+	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, float lod) override;
+	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override;
 
 	Ref<Image> texture_2d_placeholder;
 	Vector<Ref<Image>> texture_2d_array_placeholder;

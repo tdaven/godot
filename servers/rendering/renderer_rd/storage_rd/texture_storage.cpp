@@ -35,6 +35,8 @@
 #include "material_storage.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 
+#include "core/object/worker_thread_pool.h"
+
 using namespace RendererRD;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -75,7 +77,7 @@ TextureStorage *TextureStorage::get_singleton() {
 
 TextureStorage::TextureStorage() {
 	singleton = this;
-
+	
 	{ //create default textures
 
 		RD::TextureFormat tformat;
@@ -770,7 +772,7 @@ void TextureStorage::texture_free(RID p_texture) {
 
 void TextureStorage::texture_2d_initialize(RID p_texture, const Ref<Image> &p_image) {
 	ERR_FAIL_COND(p_image.is_null());
-
+	fprintf(stderr, "texture_2d_initialize %lu %i\n", p_texture.get_id(), p_image->get_mipmap_count());
 	TextureToRDFormat ret_format;
 	Ref<Image> image = _validate_texture_format(p_image, ret_format);
 
@@ -1297,12 +1299,129 @@ void TextureStorage::_texture_2d_update(RID p_texture, const Ref<Image> &p_image
 #endif
 	TextureToRDFormat f;
 	Ref<Image> validated = _validate_texture_format(p_image, f);
-
+	// fprintf(stderr, "texture_2d_update %lu\n", p_texture.get_id());
 	RD::get_singleton()->texture_update(tex->rd_texture, p_layer, validated->get_data());
 }
 
 void TextureStorage::texture_2d_update(RID p_texture, const Ref<Image> &p_image, int p_layer) {
 	_texture_2d_update(p_texture, p_image, p_layer, false);
+}
+
+// struct TextureReload {
+// 	RID texture;
+// 	int lod;
+// };
+
+void TextureStorage::handle_texture_reload(void* data) {
+	TextureStorage * storage  = static_cast<TextureStorage*>(data);
+	// String path = RS::get_singleton()->texture_get_path(reload->texture);
+	// fprintf(stderr, "reload %s %i\n", path.utf8().get_data(), reload->lod);
+
+	// Ref<Resource> new_texture = ResourceLoader::load(path, "", ResourceFormatLoader::CACHE_MODE_REPLACE_DEEP);
+	// RS::get_singleton()->texture_replace(reload->texture, new_texture->get_rid());
+	// RS::get_singleton()->texture_set_path(reload->texture, path);
+	// // ResourceLoader.load_threaded_request(path,"Derp", false, ResourceLoader.CACHE_MODE_REPLACE);
+
+	// memfree(reload);
+	while(true){  
+		RID p_texture;
+		{
+			MutexLock lock(storage->lod_reload_mutex);
+			if(storage->lod_reload_list.is_empty())
+				break;
+			p_texture = storage->lod_reload_list.front()->get();
+			storage->lod_reload_list.pop_front();
+		}
+		Texture *tex = storage->texture_owner.get_or_null(p_texture);
+		fprintf(stderr, "reloading %lu %f %f\n", p_texture.get_id(), tex->min_lod, tex->max_lod);
+		if(tex->lod_callback) {
+			tex->lod_callback(0, tex->max_lod, tex->lod_callback_ud);
+		}
+	}
+
+	fprintf(stderr, "done\n");
+
+}
+
+// void TextureStorage::texture_set_lod(RID p_texture, int lod) {
+// 	Texture *tex = texture_owner.get_or_null(p_texture);
+// 	ERR_FAIL_NULL(tex);
+
+// 	if(lod != tex->texture_lod) {
+// 		tex->texture_lod = lod;
+// 		tex->texture_lod_dirty = true;
+// 		fprintf(stderr, "new texture lod: %i\n", lod);
+// 		TextureReload * reload = memnew(TextureReload);
+// 		reload->texture = p_texture;
+// 		reload->lod = lod;
+// 		WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, reload);
+
+// 	}
+// }
+
+// void TextureStorage::textu re_update_lod(RID p_texture) {
+
+// 	Texture *tex = texture_owner.get_or_null(p_texture);
+// 	ERR_FAIL_NULL(tex);
+// 	if(tex->texture_lod_dirty) {
+// 		tex->texture_lod_dirty = false;
+// 		fprintf(stderr, "start a reload here: %i\n", tex->texture_lod);
+// 	}
+// }
+
+void TextureStorage::texture_set_lod(RID p_texture, uint64_t p_frame, float p_lod) {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_NULL(tex);
+	// fprintf(stderr, "texture_set_lod:%li %i\n", p_texture.get_id(), p_lod);
+	// if (tex->lod_callback) {
+	// 	tex->lod_callback(p_frame, p_lod, tex->lod_callback_ud);
+	// }
+}
+
+void TextureStorage::texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, float p_lod){
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_NULL(tex);
+	bool change = false;
+
+	// Reset min/max lod on cycle change so we can re-measure what is 
+	// currently being used.
+	if(tex->lod_cycle != p_lod_cycle) {
+		change = tex->lod_cycle != 0 &&   ((tex->min_lod != tex->tmp_min_lod) || (tex->max_lod != tex->tmp_max_lod));
+		// fprintf(stderr, "lod change WTF %i %i\n", (tex->min_lod != tex->tmp_min_lod), (tex->max_lod != tex->tmp_max_lod));
+		tex->min_lod = tex->tmp_min_lod;
+		tex->max_lod = tex->tmp_max_lod;
+		tex->tmp_max_lod = p_lod;
+		tex->tmp_min_lod = p_lod;
+		tex->lod_cycle = p_lod_cycle;
+	} 
+	
+	if (tex->lod_cycle == p_lod_cycle) {
+		if(p_lod > tex->tmp_max_lod) {
+			tex->tmp_max_lod = p_lod;
+		}
+
+		if(p_lod < tex->tmp_min_lod) {
+			tex->tmp_min_lod = p_lod;
+		}
+	}
+
+
+	if (change && tex->lod_callback) {
+		fprintf(stderr, "lod change %lu %f %f\n", p_texture.get_id(), tex->min_lod, tex->max_lod);
+		MutexLock lock(lod_reload_mutex);
+		lod_reload_list.push_back(p_texture);
+		if (lod_reload_list.size() == 1) {
+			WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, this);
+		}
+	}
+}
+
+void TextureStorage::texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_NULL(tex);
+	// fprintf(stderr, "texture_set_lod_callback:%li\n", p_texture.get_id());
+	tex->lod_callback = p_callback;
+	tex->lod_callback_ud = p_userdata;
 }
 
 void TextureStorage::texture_3d_update(RID p_texture, const Vector<Ref<Image>> &p_data) {
@@ -1516,6 +1635,7 @@ Vector<Ref<Image>> TextureStorage::texture_3d_get(RID p_texture) const {
 }
 
 void TextureStorage::texture_replace(RID p_texture, RID p_by_texture) {
+	fprintf(stderr, "texture_replace %lu %lu\n", p_texture.get_id(), p_by_texture.get_id());
 	Texture *tex = texture_owner.get_or_null(p_texture);
 	ERR_FAIL_NULL(tex);
 	ERR_FAIL_COND(tex->proxy_to.is_valid()); //can't replace proxy
@@ -1573,12 +1693,17 @@ void TextureStorage::texture_set_path(RID p_texture, const String &p_path) {
 	Texture *tex = texture_owner.get_or_null(p_texture);
 	ERR_FAIL_NULL(tex);
 
+	fprintf(stderr, "texture_set_path %lu %s\n", p_texture.get_id(), (char *)p_path.utf8().get_data());
 	tex->path = p_path;
 }
 
 String TextureStorage::texture_get_path(RID p_texture) const {
 	Texture *tex = texture_owner.get_or_null(p_texture);
-	ERR_FAIL_NULL_V(tex, String());
+	fprintf(stderr, "texture_get_path %lu\n", p_texture.get_id());
+	if (!tex) {
+		return String();
+		// ERR_FAIL_NULL_V(tex, String());
+	}
 
 	return tex->path;
 }

@@ -75,12 +75,104 @@ private:
 	static void _requested_roughness(void *p_ud, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);
 	static void _requested_normal(void *p_ud);
 
+	static Array reload_queue;
+	static Mutex reload_mutex;
+
+	void derp() {
+		fprintf(stderr, "_min_lod %f\n", _min_lod);
+		load(path_to_file);
+	}
+
+	static void handle_texture_reload(void *data) {
+		CompressedTexture2D *_this = static_cast<CompressedTexture2D *>(data);
+		_this->derp();
+	}
+
+	float _min_lod = 14.0f;
+
+	float _now_min_lod = 0.0f;
+	float _tmp_min_lod = 0.0f;
+	uint64_t prev_frame = 0;
+	static WorkerThreadPool::TaskID reload_task;
+	static constexpr float MIN_LOD = 12.0f;
+
+	void set_min_lod(float x) {
+		
+
+		fprintf(stderr, "xxx %f %f\n", x, _min_lod);
+	}
+
+	float last_lod = 0.0f;
+	void lod_callback2(uint64_t frame, float p_lod) {
+		if(_min_lod != p_lod) {
+			_min_lod = p_lod;
+			
+			if (_min_lod < 5.0f)
+				_min_lod = 5.0f;
+			derp();
+		}
+
+
+		
+		// float quantized_lod = floor(p_lod * 10.0f) / 10.0f;
+
+		// if(quantized_lod != last_lod) {
+		// 	last_lod = quantized_lod;
+		// 	fprintf(stderr, "LOD = %f\n", last_lod);
+		// }
+
+		// return;
+
+		// bool reload = false;
+		// if (frame != prev_frame) {
+		// 	prev_frame = frame;
+
+		// 	if (_now_min_lod != _tmp_min_lod) {
+		// 		_now_min_lod = _tmp_min_lod;
+		// 		set_min_lod(_now_min_lod);
+		// 		reload = true;
+		// 	}
+		// 	_tmp_min_lod = 0.0f;
+		// }
+
+		// {
+		// 	const auto l = floorf(14.0f * p_lod);
+		// 	fprintf(stderr, "p_lod=%f _tmp_min_lod=%f _now_min_lod=%f\n", p_lod, _tmp_min_lod, _now_min_lod);
+		// 	if (frame == prev_frame && l > _tmp_min_lod) {
+		// 		_tmp_min_lod = l;
+		// 	}
+		// }
+
+		// if (reload_task != WorkerThreadPool::INVALID_TASK_ID) {
+		// 	if (WorkerThreadPool::get_singleton()->is_task_completed(reload_task)) {
+		// 		reload_task = WorkerThreadPool::INVALID_TASK_ID;
+		// 	}
+		// }
+
+		// if (texture.is_valid() && reload && reload_task == WorkerThreadPool::INVALID_TASK_ID) {
+		// 	reload_task = WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, this);
+		// }
+	}
+
+	static void lod_callback(uint64_t p_frame, float p_lod, void *p_userdata) {
+		CompressedTexture2D *_this = reinterpret_cast<CompressedTexture2D *>(p_userdata);
+		_this->lod_callback2(p_frame, p_lod);
+	}
+
+	bool can_load_miplevel(int m) {
+		if (_min_lod != -1 && m >= _min_lod) {
+			return true;
+		}
+
+		return false;
+	}
+
 protected:
 	static void _bind_methods();
 	void _validate_property(PropertyInfo &p_property) const;
 
 public:
-	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit);
+	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit, int p_min_lod = 0);
 
 	typedef void (*TextureFormatRequestCallback)(const Ref<CompressedTexture2D> &);
 	typedef void (*TextureFormatRoughnessRequestCallback)(const Ref<CompressedTexture2D> &, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);

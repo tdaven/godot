@@ -816,6 +816,16 @@ String MeshStorage::mesh_get_path(RID p_mesh) const {
 	return mesh->path;
 }
 
+void MeshStorage::mesh_update_material_lod(RID p_mesh, float p_lod) {
+	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
+	ERR_FAIL_NULL(mesh);
+
+	uint64_t frame = RSG::rasterizer->get_frame_number();
+	for (uint32_t surface = 0; surface < mesh->surface_count; surface++) {
+		RSG::material_storage->material_set_lod(mesh->surfaces[surface]->material, frame, p_lod);
+	}
+}
+
 void MeshStorage::mesh_set_shadow_mesh(RID p_mesh, RID p_shadow_mesh) {
 	ERR_FAIL_COND_MSG(p_mesh == p_shadow_mesh, "Cannot set a mesh as its own shadow mesh.");
 	Mesh *mesh = mesh_owner.get_or_null(p_mesh);

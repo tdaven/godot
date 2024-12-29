@@ -116,6 +116,7 @@ public:
 		Vector<uint8_t> ubo_data[2]; // 0: linear buffer; 1: sRGB buffer.
 		RID uniform_buffer[2]; // 0: linear buffer; 1: sRGB buffer.
 		Vector<RID> texture_cache;
+		Vector<RID> lod_texture_cache;
 	};
 
 	struct Samplers {
@@ -466,6 +467,8 @@ public:
 			return material->data;
 		}
 	}
+
+	virtual void material_set_lod(RID p_material, uint64_t p_frame, float p_lod) override;
 };
 
 } // namespace RendererRD

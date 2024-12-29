@@ -598,6 +598,8 @@ public:
 	_FORCE_INLINE_ bool skeleton_is_valid(RID p_skeleton) {
 		return skeleton_owner.get_or_null(p_skeleton) != nullptr;
 	}
+
+	virtual void mesh_update_material_lod(RID p_mesh, float p_lod) {}
 };
 
 } // namespace GLES3
