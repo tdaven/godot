@@ -338,6 +338,11 @@ layout(set = 1, binding = 2, std430) buffer restrict readonly InstanceDataBuffer
 }
 instances;
 
+layout(set = 1, binding = 35, std430) coherent buffer MaterialFeedbackBuffer {
+	uint data[];
+}
+material_feedback;
+
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 
 layout(set = 1, binding = 3) uniform textureCubeArray radiance_cubemap;

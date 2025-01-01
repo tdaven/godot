@@ -1110,6 +1110,30 @@ vec3 encode24(vec3 v) {
 }
 #endif // MODE_RENDER_NORMAL_ROUGHNESS
 
+float get_lod(ivec2 dim, vec2 uv_dx, vec2 uv_dy) {
+	return log2(max(length(uv_dx * dim), length(uv_dy * dim)));
+}
+
+void material_feedback_write(in uint materialIndex, in vec2 uv, in vec2 screen) {
+	const vec2 uvsets_dx = dFdx(uv);
+	const vec2 uvsets_dy = dFdy(uv);
+	const float lod_uvset0 = get_lod(ivec2(65536u), uvsets_dx.xy, uvsets_dy.xy);
+	const uint resolution0 = 65536u >> uint(max(0, lod_uvset0));
+	// const uint mask = resolution0 & 0xffff | materialIndex << 16u;
+	// vec2 ddx = dFdx(uv*4096);
+	// vec2 ddy = dFdy(uv*4096);
+	// float lod = 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy))); // Approximate texel size
+
+	// vec2 texture_coord  = uv * float(4096);
+	// vec2  dx_vtc        = dFdxCoarse(texture_coord);
+	// vec2  dy_vtc        = dFdyCoarse(texture_coord);
+	// float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
+	// float miplevel =  0.5 * log2(delta_max_sqr);
+
+	uint x = resolution0;
+	atomicOr(material_feedback.data[materialIndex], x);
+}
+
 void fragment_shader(in SceneData scene_data) {
 	uint instance_index = instance_index_interp;
 
@@ -1192,7 +1216,13 @@ void fragment_shader(in SceneData scene_data) {
 
 	vec3 normal_map = vec3(0.5);
 #endif
-
+// #ifdef MODE_RENDER_MATERIAL
+#ifdef UV_USED
+	if (subgroupElect()) {
+		material_feedback_write(instance_index, uv_interp, scene_data.viewport_size);
+	}
+#endif
+	// #endif
 	float normal_map_depth = 1.0;
 
 	vec2 screen_uv = gl_FragCoord.xy * scene_data.screen_pixel_size;

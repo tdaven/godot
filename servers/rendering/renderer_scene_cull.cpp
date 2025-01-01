@@ -3551,6 +3551,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	}
 
 	RENDER_TIMESTAMP("Render 3D Scene");
+	// fprintf(stderr, "RendererSceneCull::_render_scene\n");
 	scene_render->render_scene(p_render_buffers, p_camera_data, prev_camera_data, scene_cull_result.geometry_instances, scene_cull_result.light_instances, scene_cull_result.reflections, scene_cull_result.voxel_gi_instances, scene_cull_result.decals, scene_cull_result.lightmaps, scene_cull_result.fog_volumes, p_environment, camera_attributes, p_compositor, p_shadow_atlas, occluders_tex, p_reflection_probe.is_valid() ? RID() : scenario->reflection_atlas, p_reflection_probe, p_reflection_probe_pass, p_screen_mesh_lod_threshold, render_shadow_data, max_shadows_used, render_sdfgi_data, cull.sdfgi.region_count, &sdfgi_update_data, r_render_info);
 
 	if (p_viewport.is_valid()) {
@@ -3566,7 +3567,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 		render_sdfgi_data[i].instances.clear();
 	}
 
-	{
+	if (0) {
 		uint64_t frame = RSG::rasterizer->get_frame_number();
 		uint64_t p_from = 0;
 		uint64_t p_to = scenario->instance_data.size();
@@ -3593,12 +3594,16 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 			// float surface_distance = (inst->transformed_aabb.get_center() - camera_position).length();
 			float radius = (inst->transformed_aabb.get_center() - inst->transformed_aabb.position).length_squared();
 			float theta = 2.0f * atanf(radius / surface_distance);
-			float theta_deg = Math::rad_to_deg(theta); 
+			float theta_deg = Math::rad_to_deg(theta);
 			float size = theta_deg / p_camera_data->main_projection.get_fov();
 			size = CLAMP(size, 0.0f, 1.0f);
 			float xxx = pow(size, 0.1f);
 			xxx = floor(14.0f * xxx);
-			RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, xxx);
+			// xxx = CLAMP(xxx, 0.0f, 10.0f);
+			// if(!idata.lod_visible) {
+			// 	xxx = CLAMP(xxx, 0.0f, 5.0f);
+			// }
+			// RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, xxx);
 		}
 	}
 }

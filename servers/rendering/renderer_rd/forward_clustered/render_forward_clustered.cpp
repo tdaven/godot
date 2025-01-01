@@ -770,14 +770,32 @@ void RenderForwardClustered::_update_instance_data_buffer(RenderListType p_rende
 			scene_state.instance_buffer_size[p_render_list] = new_size;
 		}
 		RD::get_singleton()->buffer_update(scene_state.instance_buffer[p_render_list], 0, sizeof(SceneState::InstanceData) * scene_state.instance_data[p_render_list].size(), scene_state.instance_data[p_render_list].ptr());
+
+		if (scene_state.material_feedback_buffer[p_render_list] == RID() || scene_state.material_feedback_buffer_size[p_render_list] < scene_state.instance_data[p_render_list].size()) {
+			if (scene_state.material_feedback_buffer[p_render_list] != RID()) {
+				RD::get_singleton()->free(scene_state.material_feedback_buffer[p_render_list]);
+			}
+
+			uint32_t new_size = nearest_power_of_2_templated(MAX(uint64_t(INSTANCE_DATA_BUFFER_MIN_SIZE), scene_state.instance_data[p_render_list].size()));
+			scene_state.material_feedback_buffer[p_render_list] = RD::get_singleton()->storage_buffer_create(new_size * sizeof(uint32_t));
+			scene_state.material_feedback_buffer_size[p_render_list] = new_size;
+		}
+
+		LocalVector<uint32_t> zero;
+		zero.resize(scene_state.material_feedback_buffer_size[p_render_list]);
+		for (auto &x : zero)
+			x = 0;
+		RD::get_singleton()->buffer_update(scene_state.material_feedback_buffer[p_render_list], 0, sizeof(uint32_t) * zero.size(), zero.ptr());
 	}
 }
+
 void RenderForwardClustered::_fill_instance_data(RenderListType p_render_list, int *p_render_info, uint32_t p_offset, int32_t p_max_elements, bool p_update_buffer) {
 	RenderList *rl = &render_list[p_render_list];
 	uint32_t element_total = p_max_elements >= 0 ? uint32_t(p_max_elements) : rl->elements.size();
 
 	scene_state.instance_data[p_render_list].resize(p_offset + element_total);
 	rl->element_info.resize(p_offset + element_total);
+	material_feedback_map[p_render_list].resize(p_offset + element_total);
 
 	if (p_render_info) {
 		p_render_info[RS::VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME] += element_total;
@@ -785,10 +803,17 @@ void RenderForwardClustered::_fill_instance_data(RenderListType p_render_list, i
 	uint64_t frame = RSG::rasterizer->get_frame_number();
 	uint32_t repeats = 0;
 	GeometryInstanceSurfaceDataCache *prev_surface = nullptr;
+	// fprintf(stderr, "%i size = %u\n", p_render_list, element_total);
+	if (p_render_list == RENDER_LIST_OPAQUE) {
+		material_feedback_cycle1++;
+	}
+
 	for (uint32_t i = 0; i < element_total; i++) {
 		GeometryInstanceSurfaceDataCache *surface = rl->elements[i + p_offset];
 		GeometryInstanceForwardClustered *inst = surface->owner;
 
+		material_feedback_map[p_render_list][i + p_offset] = surface->material->get_rid();
+		// fprintf(stderr, "map[%i][%i] = %lu\n", p_render_list, i + p_offset, surface->material->get_rid().get_id());
 		SceneState::InstanceData &instance_data = scene_state.instance_data[p_render_list][i + p_offset];
 
 		if (inst->prev_transform_dirty && frame > inst->prev_transform_change_frame + 1 && inst->prev_transform_change_frame) {
@@ -1656,6 +1681,41 @@ void RenderForwardClustered::_process_sss(Ref<RenderSceneBuffersRD> p_render_buf
 	}
 }
 
+void RenderForwardClustered::_material_feedback_callback(PackedByteArray const &array) {
+	if (array.is_empty())
+		return;
+	auto &map = RenderForwardClustered::get_singleton()->material_feedback_map[RENDER_LIST_OPAQUE];
+
+	if (array.size() / 4 == map.size()) {
+		fprintf(stderr, "scan feedback %u %u\n", array.size() / 4, map.size());
+		for (int i = 0; i < map.size(); i++) {
+			const uint32_t xx = reinterpret_cast<const uint32_t *>(array.ptr())[i];
+
+			uint32_t a = xx >> 16;
+			uint32_t b = xx & 0xffff;
+
+			RID m = a < map.size() ? map[i] : RID();
+			uint32_t z = b != 0 ? 1 << (31ul - __builtin_clz(b)) : 0;
+			z = CLAMP(z, 1, 16384);
+			// fprintf(stderr, "DERP %x %u %u %lu %u\n", xx, a, b, m.get_id(), uint32_t((z)));
+
+			if (m.is_valid()) {
+				RSG::material_storage->material_set_lod(m, 1, z);
+			}
+		}
+
+		fprintf(stderr, "update feedback\n");
+		for (int i = 0; i < map.size(); i++) {
+			RID m = map[i];
+
+			if (m.is_valid()) {
+				RSG::material_storage->material_set_lod(m, 0, 0);
+			}
+		}
+		fprintf(stderr, "update done\n");
+	}
+}
+
 void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Color &p_default_bg_color) {
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
@@ -2157,6 +2217,24 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		}
 
 		RD::get_singleton()->draw_command_end_label();
+
+		{
+			if (material_feedback_cycle1 != material_feedback_cycle2) {
+				material_feedback_cycle2 = material_feedback_cycle1;
+				RENDER_TIMESTAMP("Material Feedback");
+				if (scene_state.material_feedback_buffer[RENDER_LIST_OPAQUE].is_valid()) {
+					// RD::get_singleton()->buffer_get_data_async(scene_state.material_feedback_buffer[RENDER_LIST_OPAQUE],
+					// 	callable_mp_static(&RenderForwardClustered::_material_feedback_callback),
+					// 	0,
+					// 	material_feedback_map[RENDER_LIST_OPAQUE].size() * 4);
+					auto x = RD::get_singleton()->buffer_get_data(
+							scene_state.material_feedback_buffer[RENDER_LIST_OPAQUE],
+							0,
+							material_feedback_map[RENDER_LIST_OPAQUE].size() * 4);
+					_material_feedback_callback(x);
+				}
+			}
+		}
 
 		if (using_motion_pass) {
 			if (scale_type == SCALE_MFX) {
@@ -3250,6 +3328,17 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		RID instance_buffer = scene_state.instance_buffer[p_render_list];
 		if (instance_buffer == RID()) {
 			instance_buffer = scene_shader.default_vec4_xform_buffer; // any buffer will do since its not used
+		}
+		u.append_id(instance_buffer);
+		uniforms.push_back(u);
+	}
+	{
+		RD::Uniform u;
+		u.binding = 35;
+		u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
+		RID instance_buffer = scene_state.material_feedback_buffer[p_render_list];
+		if (instance_buffer == RID()) {
+			instance_buffer = scene_shader.default_material_feedback_buffer; // any buffer will do since its not used
 		}
 		u.append_id(instance_buffer);
 		uniforms.push_back(u);
@@ -4984,6 +5073,10 @@ RenderForwardClustered::~RenderForwardClustered() {
 		for (uint32_t i = 0; i < RENDER_LIST_MAX; i++) {
 			if (scene_state.instance_buffer[i] != RID()) {
 				RD::get_singleton()->free(scene_state.instance_buffer[i]);
+			}
+
+			if (scene_state.material_feedback_buffer[i] != RID()) {
+				RD::get_singleton()->free(scene_state.material_feedback_buffer[i]);
 			}
 		}
 		memdelete_arr(scene_state.lightmap_captures);

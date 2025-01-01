@@ -182,6 +182,7 @@ public:
 	enum MemoryAllocationType {
 		MEMORY_ALLOCATION_TYPE_CPU, // For images, CPU allocation also means linear, GPU is tiling optimal.
 		MEMORY_ALLOCATION_TYPE_GPU,
+		MEMORY_ALLOCATION_TYPE_GPU_HOST_VISIBLE,
 	};
 
 	/*****************/

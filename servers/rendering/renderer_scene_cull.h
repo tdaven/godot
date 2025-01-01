@@ -300,6 +300,7 @@ public:
 		// This creates a delay for occlusion culling, which prevents flickering
 		// when jittering the raster occlusion projection.
 		uint64_t occlusion_timeout = 0;
+		bool lod_visible = false;
 	};
 
 	struct InstanceVisibilityData {

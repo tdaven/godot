@@ -82,13 +82,12 @@ Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r
 		p_size_limit = 0;
 	}
 
-	image = load_image_from_file(f, p_size_limit, 14.0f - _min_lod);
-
-	fprintf(stderr, "mipmaps=%i\n", image->get_mipmap_count());
+	image = load_image_from_file(f, p_size_limit, _min_lod);
 
 	if (image.is_null() || image->is_empty()) {
 		return ERR_CANT_OPEN;
 	}
+	fprintf(stderr, "mipmaps=%i\n", image->get_mipmap_count());
 
 	return OK;
 }
@@ -156,9 +155,9 @@ Error CompressedTexture2D::load(const String &p_path) {
 		RS::get_singleton()->texture_set_size_override(texture, lw, lh);
 	}
 
-	if (image->get_mipmap_count() > 0) {
-		RS::get_singleton()->texture_set_lod_callback(texture, lod_callback, this);
-	}
+	// if (image->get_mipmap_count() > 0) {
+	RS::get_singleton()->texture_set_lod_callback(texture, lod_callback, this);
+	// }
 
 	w = lw;
 	h = lh;
@@ -432,12 +431,12 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	} else if (data_format == DATA_FORMAT_IMAGE) {
 		int size = Image::get_image_data_size(w, h, format, mipmaps ? true : false);
 
-		if (p_min_lod == -1) {
-			p_min_lod = mipmaps > 1 ? mipmaps - 1 : mipmaps;
-		}
+		// if (p_min_lod == -1) {
+		// 	p_min_lod = mipmaps > 1 ? mipmaps - 1 : mipmaps;
+		// }
 
-		p_min_lod = CLAMP(p_min_lod, 0, mipmaps);
-		for (uint32_t i = 0; i < p_min_lod + 1; i++) {
+		// p_min_lod = CLAMP(p_min_lod, 0, mipmaps);
+		for (uint32_t i = 0; i < mipmaps + 1; i++) {
 			int tw, th;
 			int ofs = Image::get_image_mipmap_offset_and_dimensions(w, h, format, i, tw, th);
 
@@ -449,7 +448,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 			// 	continue; // mip level is larger then the allowed max size
 			// }
 
-			if (p_min_lod < mipmaps && p_min_lod >= 0 && (int)i < p_min_lod) {
+			if (p_min_lod >= 0 && ((p_min_lod < tw) || (p_min_lod < th))) {
 				fprintf(stderr, "skipping mip level %i [%i %i]\n", i, p_min_lod, mipmaps);
 				continue;
 			}

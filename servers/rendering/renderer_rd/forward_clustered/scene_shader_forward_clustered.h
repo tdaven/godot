@@ -329,6 +329,8 @@ public:
 	RID default_vec4_xform_buffer;
 	RID default_vec4_xform_uniform_set;
 
+	RID default_material_feedback_buffer;
+
 	RID shadow_sampler;
 
 	RID default_material_uniform_set;

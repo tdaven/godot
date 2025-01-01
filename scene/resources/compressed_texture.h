@@ -88,32 +88,29 @@ private:
 		_this->derp();
 	}
 
-	float _min_lod = 14.0f;
+	float _min_lod = -1;
 
 	float _now_min_lod = 0.0f;
 	float _tmp_min_lod = 0.0f;
 	uint64_t prev_frame = 0;
 	static WorkerThreadPool::TaskID reload_task;
-	static constexpr float MIN_LOD = 12.0f;
+	// static constexpr float MIN_LOD = 12.0f;
 
 	void set_min_lod(float x) {
-		
-
 		fprintf(stderr, "xxx %f %f\n", x, _min_lod);
 	}
 
 	float last_lod = 0.0f;
 	void lod_callback2(uint64_t frame, float p_lod) {
-		if(_min_lod != p_lod) {
-			_min_lod = p_lod;
-			
-			if (_min_lod < 5.0f)
-				_min_lod = 5.0f;
+		float lod = CLAMP(p_lod, 32, 16384);
+		if (_min_lod != lod) {
+			_min_lod = lod;
+
+			// if (_min_lod > 12.0f)
+			// 	_min_lod = 12.0f;
 			derp();
 		}
 
-
-		
 		// float quantized_lod = floor(p_lod * 10.0f) / 10.0f;
 
 		// if(quantized_lod != last_lod) {
@@ -156,7 +153,8 @@ private:
 
 	static void lod_callback(uint64_t p_frame, float p_lod, void *p_userdata) {
 		CompressedTexture2D *_this = reinterpret_cast<CompressedTexture2D *>(p_userdata);
-		_this->lod_callback2(p_frame, p_lod);
+		if (_this)
+			_this->lod_callback2(p_frame, p_lod);
 	}
 
 	bool can_load_miplevel(int m) {
