@@ -99,7 +99,7 @@ public:
 
 	virtual void material_update_dependency(RID p_material, DependencyTracker *p_instance) = 0;
 
-	virtual void material_set_lod(RID p_material, uint64_t p_frame, float p_lod) = 0;
+	virtual void material_set_lod(RID p_material, uint64_t p_frame, int p_requested_resolution) = 0;
 };
 
 #endif // MATERIAL_STORAGE_H

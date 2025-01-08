@@ -167,7 +167,7 @@ public:
 
 	typedef void (*TextureLodCallback)(uint64_t p_frame, float p_lod, void *p_userdata);
 	virtual void texture_set_lod(RID p_texture, uint64_t p_frame, float p_lod) = 0;
-	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, float lod) = 0;
+	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, uint32_t lod) = 0;
 	virtual void texture_set_lod_callback(RID p_texture, TextureLodCallback p_callback, void *p_userdata) = 0;
 
 	enum TextureDetectRoughnessChannel {
@@ -442,7 +442,7 @@ public:
 
 	virtual void mesh_set_path(RID p_mesh, const String &p_path) = 0;
 	virtual String mesh_get_path(RID p_mesh) const = 0;
-	virtual void mesh_update_material_lod(RID p_mesh, float p_lod) = 0;
+	virtual void mesh_update_material_lod(RID p_mesh, uint32_t p_lod) = 0;
 
 	virtual void mesh_set_shadow_mesh(RID p_mesh, RID p_shadow_mesh) = 0;
 

@@ -96,59 +96,14 @@ private:
 	static WorkerThreadPool::TaskID reload_task;
 	// static constexpr float MIN_LOD = 12.0f;
 
-	void set_min_lod(float x) {
-		fprintf(stderr, "xxx %f %f\n", x, _min_lod);
-	}
-
 	float last_lod = 0.0f;
 	void lod_callback2(uint64_t frame, float p_lod) {
 		float lod = CLAMP(p_lod, 32, 16384);
 		if (_min_lod != lod) {
 			_min_lod = lod;
-
-			// if (_min_lod > 12.0f)
-			// 	_min_lod = 12.0f;
+			fprintf(stderr, "reload %s %f\n", get_path().utf8().get_data(), lod);
 			derp();
 		}
-
-		// float quantized_lod = floor(p_lod * 10.0f) / 10.0f;
-
-		// if(quantized_lod != last_lod) {
-		// 	last_lod = quantized_lod;
-		// 	fprintf(stderr, "LOD = %f\n", last_lod);
-		// }
-
-		// return;
-
-		// bool reload = false;
-		// if (frame != prev_frame) {
-		// 	prev_frame = frame;
-
-		// 	if (_now_min_lod != _tmp_min_lod) {
-		// 		_now_min_lod = _tmp_min_lod;
-		// 		set_min_lod(_now_min_lod);
-		// 		reload = true;
-		// 	}
-		// 	_tmp_min_lod = 0.0f;
-		// }
-
-		// {
-		// 	const auto l = floorf(14.0f * p_lod);
-		// 	fprintf(stderr, "p_lod=%f _tmp_min_lod=%f _now_min_lod=%f\n", p_lod, _tmp_min_lod, _now_min_lod);
-		// 	if (frame == prev_frame && l > _tmp_min_lod) {
-		// 		_tmp_min_lod = l;
-		// 	}
-		// }
-
-		// if (reload_task != WorkerThreadPool::INVALID_TASK_ID) {
-		// 	if (WorkerThreadPool::get_singleton()->is_task_completed(reload_task)) {
-		// 		reload_task = WorkerThreadPool::INVALID_TASK_ID;
-		// 	}
-		// }
-
-		// if (texture.is_valid() && reload && reload_task == WorkerThreadPool::INVALID_TASK_ID) {
-		// 	reload_task = WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, this);
-		// }
 	}
 
 	static void lod_callback(uint64_t p_frame, float p_lod, void *p_userdata) {

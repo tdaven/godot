@@ -182,7 +182,6 @@ public:
 	enum MemoryAllocationType {
 		MEMORY_ALLOCATION_TYPE_CPU, // For images, CPU allocation also means linear, GPU is tiling optimal.
 		MEMORY_ALLOCATION_TYPE_GPU,
-		MEMORY_ALLOCATION_TYPE_GPU_HOST_VISIBLE,
 	};
 
 	/*****************/
@@ -198,6 +197,7 @@ public:
 		BUFFER_USAGE_INDEX_BIT = (1 << 6),
 		BUFFER_USAGE_VERTEX_BIT = (1 << 7),
 		BUFFER_USAGE_INDIRECT_BIT = (1 << 8),
+		BUFFER_USAGE_HOST_VISIBLE_BIT = (1 << 9),
 	};
 
 	enum {

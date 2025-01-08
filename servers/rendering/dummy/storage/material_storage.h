@@ -113,7 +113,7 @@ public:
 
 	virtual void material_get_instance_shader_parameters(RID p_material, List<InstanceShaderParam> *r_parameters) override {}
 	virtual void material_update_dependency(RID p_material, DependencyTracker *p_instance) override {}
-	virtual void material_set_lod(RID p_material, uint64_t p_frame, float p_lod) override {}
+	virtual void material_set_lod(RID p_material, uint64_t p_frame, int p_requested_resolution) override {}
 };
 
 } // namespace RendererDummy

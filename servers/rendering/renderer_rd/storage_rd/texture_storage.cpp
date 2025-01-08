@@ -1307,22 +1307,9 @@ void TextureStorage::texture_2d_update(RID p_texture, const Ref<Image> &p_image,
 	_texture_2d_update(p_texture, p_image, p_layer, false);
 }
 
-// struct TextureReload {
-// 	RID texture;
-// 	int lod;
-// };
-
 void TextureStorage::handle_texture_reload(void *data) {
 	TextureStorage *storage = static_cast<TextureStorage *>(data);
-	// String path = RS::get_singleton()->texture_get_path(reload->texture);
-	// fprintf(stderr, "reload %s %i\n", path.utf8().get_data(), reload->lod);
 
-	// Ref<Resource> new_texture = ResourceLoader::load(path, "", ResourceFormatLoader::CACHE_MODE_REPLACE_DEEP);
-	// RS::get_singleton()->texture_replace(reload->texture, new_texture->get_rid());
-	// RS::get_singleton()->texture_set_path(reload->texture, path);
-	// // ResourceLoader.load_threaded_request(path,"Derp", false, ResourceLoader.CACHE_MODE_REPLACE);
-
-	// memfree(reload);
 	while (true) {
 		RID p_texture;
 		{
@@ -1334,7 +1321,7 @@ void TextureStorage::handle_texture_reload(void *data) {
 		}
 		Texture *tex = storage->texture_owner.get_or_null(p_texture);
 		if (tex->max_lod > 0.0f) {
-			fprintf(stderr, "reloading %lu %f %f\n", p_texture.get_id(), tex->min_lod, tex->max_lod);
+			fprintf(stderr, "reloading %lu %f\n", p_texture.get_id(), tex->max_lod);
 			if (tex->lod_callback) {
 				tex->lod_callback(0, tex->max_lod, tex->lod_callback_ud);
 			}
@@ -1343,32 +1330,6 @@ void TextureStorage::handle_texture_reload(void *data) {
 
 	fprintf(stderr, "done\n");
 }
-
-// void TextureStorage::texture_set_lod(RID p_texture, int lod) {
-// 	Texture *tex = texture_owner.get_or_null(p_texture);
-// 	ERR_FAIL_NULL(tex);
-
-// 	if(lod != tex->texture_lod) {
-// 		tex->texture_lod = lod;
-// 		tex->texture_lod_dirty = true;
-// 		fprintf(stderr, "new texture lod: %i\n", lod);
-// 		TextureReload * reload = memnew(TextureReload);
-// 		reload->texture = p_texture;
-// 		reload->lod = lod;
-// 		WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, reload);
-
-// 	}
-// }
-
-// void TextureStorage::textu re_update_lod(RID p_texture) {
-
-// 	Texture *tex = texture_owner.get_or_null(p_texture);
-// 	ERR_FAIL_NULL(tex);
-// 	if(tex->texture_lod_dirty) {
-// 		tex->texture_lod_dirty = false;
-// 		fprintf(stderr, "start a reload here: %i\n", tex->texture_lod);
-// 	}
-// }
 
 void TextureStorage::texture_set_lod(RID p_texture, uint64_t p_frame, float p_lod) {
 	Texture *tex = texture_owner.get_or_null(p_texture);
@@ -1379,52 +1340,18 @@ void TextureStorage::texture_set_lod(RID p_texture, uint64_t p_frame, float p_lo
 	// }
 }
 
-void TextureStorage::texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, float p_lod) {
+void TextureStorage::texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, uint32_t p_requested_resolution) {
 	Texture *tex = texture_owner.get_or_null(p_texture);
 	ERR_FAIL_NULL(tex);
-	bool change = false;
 
-	p_lod = CLAMP(p_lod, 32, 16384);
-
-	// Reset min/max lod on cycle change so we can re-measure what is
-	// currently being used.
-	if (0 == p_lod_cycle) {
-		change = (tex->min_lod != tex->tmp_min_lod) || (tex->max_lod != tex->tmp_max_lod);
-		// if(change)
-		// 	fprintf(stderr, "lod change WTF %lu %lu %i %i [%i %i] current=[%f %f] new=[%f %f]\n",
-		// 	tex->lod_cycle,
-		// 	p_texture.get_id(),
-		// 	(tex->min_lod != tex->tmp_min_lod),
-		// 	(tex->max_lod != tex->tmp_max_lod),
-		// 	change,
-		// 	bool(tex->lod_callback),
-		// 	tex->min_lod,
-		// 	tex->max_lod,
-		// 	tex->tmp_min_lod,
-		// 	tex->tmp_max_lod
-		// 	);
-
-		if (change && tex->lod_callback && (tex->tmp_max_lod > 0.0f)) {
-			tex->min_lod = tex->tmp_min_lod;
-			tex->max_lod = tex->tmp_max_lod;
-			fprintf(stderr, "lod change %i %i %lu %f %f\n", change, tex->lod_callback, p_texture.get_id(), tex->min_lod, tex->max_lod);
-			MutexLock lock(lod_reload_mutex);
-			lod_reload_list.push_back(p_texture);
-			if (lod_reload_list.size() == 1) {
-				WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, this);
-			}
+	if (tex->lod_callback && (p_requested_resolution > 0)) {
+		// fprintf(stderr, "lod change %lu old=[%f] new=[%f]\n", p_texture.get_id(), tex->path.utf8().get_data(), tex->max_lod, tex->new_max_lod);
+		tex->max_lod = p_requested_resolution;
+		MutexLock lock(lod_reload_mutex);
+		lod_reload_list.push_back(p_texture);
+		if (lod_reload_list.size() == 1) {
+			WorkerThreadPool::get_singleton()->add_native_task(&handle_texture_reload, this);
 		}
-		tex->tmp_max_lod = 0.0f;
-		tex->tmp_min_lod = 16384.0f;
-		return;
-	}
-
-	if (p_lod > tex->tmp_max_lod) {
-		tex->tmp_max_lod = p_lod;
-	}
-
-	if (p_lod < tex->tmp_min_lod) {
-		tex->tmp_min_lod = p_lod;
 	}
 }
 

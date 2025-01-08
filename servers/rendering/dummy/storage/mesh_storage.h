@@ -198,7 +198,7 @@ public:
 
 	void occluder_set_mesh(RID p_occluder, const PackedVector3Array &p_vertices, const PackedInt32Array &p_indices) {}
 
-	virtual void mesh_update_material_lod(RID p_mesh, float p_lod) {}
+	virtual void mesh_update_material_lod(RID p_mesh, uint32_t p_lod) {}
 };
 
 } // namespace RendererDummy

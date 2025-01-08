@@ -157,6 +157,8 @@ private:
 		int height_2d;
 		int width_2d;
 
+		int max_lod = 0;
+
 		struct BufferSlice3D {
 			Size2i size;
 			uint32_t offset = 0;
@@ -188,11 +190,6 @@ private:
 
 		RS::TextureLodCallback lod_callback = nullptr;
 		void *lod_callback_ud = nullptr;
-		float min_lod = 1.0f;
-		float max_lod = 0.0f;
-
-		float tmp_min_lod = 1.0f;
-		float tmp_max_lod = 0.0f;
 		uint64_t lod_cycle = 0;
 
 		CanvasTexture *canvas_texture = nullptr;
@@ -207,7 +204,7 @@ private:
 	Mutex lod_reload_mutex;
 	List<RID> lod_reload_list;
 
-	static void handle_texture_reload(void* data);
+	static void handle_texture_reload(void *data);
 
 	struct TextureToRDFormat {
 		RD::DataFormat format;
@@ -536,7 +533,7 @@ public:
 	// void texture_update_lod(RID p_texture);
 
 	virtual void texture_set_lod(RID p_texture, uint64_t p_frame, float p_lod) override;
-	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, float lod) override;
+	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, uint32_t p_requested_resolution) override;
 	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override;
 
 	Ref<Image> texture_2d_placeholder;

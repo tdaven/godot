@@ -630,9 +630,7 @@ public:
 		}
 	}
 
-	virtual void material_set_lod(RID p_material, uint64_t p_frame, float p_lod) override {
-		fprintf(stderr, "material set lod: %f\n", p_lod);
-	}
+	virtual void material_set_lod(RID p_material, uint64_t p_frame, int p_requested_resolution) override {}
 };
 
 } // namespace GLES3

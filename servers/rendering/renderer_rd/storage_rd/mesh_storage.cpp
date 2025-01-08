@@ -816,7 +816,7 @@ String MeshStorage::mesh_get_path(RID p_mesh) const {
 	return mesh->path;
 }
 
-void MeshStorage::mesh_update_material_lod(RID p_mesh, float p_lod) {
+void MeshStorage::mesh_update_material_lod(RID p_mesh, uint32_t p_lod) {
 	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
 	ERR_FAIL_NULL(mesh);
 

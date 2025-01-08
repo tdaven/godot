@@ -79,7 +79,7 @@ public:
 
 	virtual bool mesh_needs_instance(RID p_mesh, bool p_has_skeleton) = 0;
 
-	virtual void mesh_update_material_lod(RID p_mesh, float p_lod) = 0;
+	virtual void mesh_update_material_lod(RID p_mesh, uint32_t p_lod) = 0;
 
 	/* MESH INSTANCE */
 

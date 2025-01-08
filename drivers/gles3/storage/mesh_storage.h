@@ -599,7 +599,7 @@ public:
 		return skeleton_owner.get_or_null(p_skeleton) != nullptr;
 	}
 
-	virtual void mesh_update_material_lod(RID p_mesh, float p_lod) {}
+	virtual void mesh_update_material_lod(RID p_mesh, uint32_t p_lod) {}
 };
 
 } // namespace GLES3

@@ -192,7 +192,7 @@ public:
 	virtual Size2i render_target_get_velocity_target_size(RID p_render_target) const = 0;
 
 	virtual void texture_set_lod(RID p_texture, uint64_t frame, float lod) = 0;
-	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, float lod) = 0;
+	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, uint32_t p_requested_resolution) = 0;
 	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) = 0;
 };
 

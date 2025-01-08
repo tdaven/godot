@@ -211,7 +211,7 @@ public:
 	virtual Size2i render_target_get_velocity_target_size(RID p_render_target) const override { return Size2i(0, 0); }
 
 	virtual void texture_set_lod(RID p_texture, uint64_t p_frame, float p_lod) override {}
-	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, float lod) override {}
+	virtual void texture_set_lod2(RID p_texture, uint64_t p_lod_cycle, uint32_t p_requested_resolution) override {}
 	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override {}
 };
 
