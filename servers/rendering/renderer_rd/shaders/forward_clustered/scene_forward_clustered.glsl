@@ -1216,13 +1216,13 @@ void fragment_shader(in SceneData scene_data) {
 
 	vec3 normal_map = vec3(0.5);
 #endif
-// #ifdef MODE_RENDER_MATERIAL
-#ifdef UV_USED
+
+#if defined(UV_USED)
 	if (subgroupElect()) {
 		material_feedback_write(instance_index, uv_interp, scene_data.viewport_size);
 	}
 #endif
-	// #endif
+
 	float normal_map_depth = 1.0;
 
 	vec2 screen_uv = gl_FragCoord.xy * scene_data.screen_pixel_size;

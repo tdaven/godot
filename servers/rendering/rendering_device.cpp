@@ -786,6 +786,28 @@ Error RenderingDevice::buffer_get_data_async(RID p_buffer, const Callable &p_cal
 	return OK;
 }
 
+// void* RenderingDevice::buffer_map(RID p_buffer) {
+// 	ERR_RENDER_THREAD_GUARD_V(nullptr);
+// 	Buffer *buffer = _get_buffer_from_owner(p_buffer);
+// 	if (buffer == nullptr) {
+// 		ERR_FAIL_V_MSG(nullptr, "Buffer is either invalid or this type of buffer can't be retrieved.");
+// 	}
+
+// 	uint8_t *data_ptr = driver->buffer_map(buffer->driver_id);
+// 	ERR_FAIL_NULL_V(data_ptr, data_ptr);
+// 	return data_ptr;
+// }
+
+// void RenderingDevice::buffer_unmap(RID p_buffer) {
+// 	ERR_RENDER_THREAD_GUARD();
+// 	Buffer *buffer = _get_buffer_from_owner(p_buffer);
+// 	if (buffer == nullptr) {
+// 		ERR_FAIL_MSG("Buffer is either invalid or this type of buffer can't be retrieved.");
+// 	}
+
+// 	driver->buffer_unmap(buffer->driver_id);
+// }
+
 RID RenderingDevice::storage_buffer_create(uint32_t p_size_bytes, const Vector<uint8_t> &p_data, BitField<StorageBufferUsage> p_usage) {
 	ERR_FAIL_COND_V(p_data.size() && (uint32_t)p_data.size() != p_size_bytes, RID());
 
@@ -794,6 +816,9 @@ RID RenderingDevice::storage_buffer_create(uint32_t p_size_bytes, const Vector<u
 	buffer.usage = (RDD::BUFFER_USAGE_TRANSFER_FROM_BIT | RDD::BUFFER_USAGE_TRANSFER_TO_BIT | RDD::BUFFER_USAGE_STORAGE_BIT);
 	if (p_usage.has_flag(STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT)) {
 		buffer.usage.set_flag(RDD::BUFFER_USAGE_INDIRECT_BIT);
+	}
+	if (p_usage.has_flag(STORAGE_BUFFER_USAGE_HOST_VISIBLE)) {
+		buffer.usage.set_flag(RDD::BUFFER_USAGE_HOST_VISIBLE_BIT);
 	}
 	buffer.driver_id = driver->buffer_create(buffer.size, buffer.usage, RDD::MEMORY_ALLOCATION_TYPE_GPU);
 	ERR_FAIL_COND_V(!buffer.driver_id, RID());

@@ -3158,6 +3158,15 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 		if (mesh_visible && cull_data.scenario->instance_data[i].flags & InstanceData::FLAG_USES_MESH_INSTANCE) {
 			cull_result.mesh_instances.push_back(cull_data.scenario->instance_data[i].instance->mesh_instance);
 		}
+
+		{
+			// Update materials to non-visible meshes so their  textures
+			// can be streamed out to lower quality versions.
+			uint32_t base_type = idata.flags & InstanceData::FLAG_BASE_TYPE_MASK;
+			if (!mesh_visible && (base_type == RS::INSTANCE_MESH)) {
+				RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, 32);
+			}
+		}
 	}
 }
 
@@ -3567,45 +3576,65 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 		render_sdfgi_data[i].instances.clear();
 	}
 
-	if (0) {
-		uint64_t frame = RSG::rasterizer->get_frame_number();
-		uint64_t p_from = 0;
-		uint64_t p_to = scenario->instance_data.size();
-		for (uint64_t i = p_from; i < p_to; i++) {
-			InstanceData &idata = scenario->instance_data[i];
+	// if (0) {
+	// 	uint64_t frame = RSG::rasterizer->get_frame_number();
+	// 	uint64_t p_from = 0;
+	// 	uint64_t p_to = scenario->instance_data.size();
+	// 	for (uint64_t i = p_from; i < p_to; i++) {
+	// 		InstanceData &idata = scenario->instance_data[i];
 
-			// if (!(idata.flags & InstanceData::FLAG_USES_MESH_INSTANCE)) {
-			// 	continue;
-			// }
+	// 		// if (!(idata.flags & InstanceData::FLAG_USES_MESH_INSTANCE)) {
+	// 		// 	continue;
+	// 		// }
 
-			uint32_t base_type = idata.flags & InstanceData::FLAG_BASE_TYPE_MASK;
-			if (base_type != RS::INSTANCE_MESH) {
-				continue;
-			}
+	// 		uint32_t base_type = idata.flags & InstanceData::FLAG_BASE_TYPE_MASK;
+	// 		if (base_type != RS::INSTANCE_MESH) {
+	// 			continue;
+	// 		}
 
-			if (!((1 << base_type) & RS::INSTANCE_GEOMETRY_MASK)) {
-				continue;
-			}
+	// 		if (!((1 << base_type) & RS::INSTANCE_GEOMETRY_MASK)) {
+	// 			continue;
+	// 		}
 
-			Instance *inst = idata.instance;
-			Vector3 aabb_min = inst->transformed_aabb.position;
-			Vector3 aabb_max = inst->transformed_aabb.position + inst->transformed_aabb.size;
-			float surface_distance = Vector3(0.0, 0.0, 0.0).max(aabb_min - camera_position).max(camera_position - aabb_max).length_squared();
-			// float surface_distance = (inst->transformed_aabb.get_center() - camera_position).length();
-			float radius = (inst->transformed_aabb.get_center() - inst->transformed_aabb.position).length_squared();
-			float theta = 2.0f * atanf(radius / surface_distance);
-			float theta_deg = Math::rad_to_deg(theta);
-			float size = theta_deg / p_camera_data->main_projection.get_fov();
-			size = CLAMP(size, 0.0f, 1.0f);
-			float xxx = pow(size, 0.1f);
-			xxx = floor(14.0f * xxx);
-			// xxx = CLAMP(xxx, 0.0f, 10.0f);
-			// if(!idata.lod_visible) {
-			// 	xxx = CLAMP(xxx, 0.0f, 5.0f);
-			// }
-			// RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, xxx);
-		}
-	}
+	// 		Instance *inst = idata.instance;
+	// 		Vector3 aabb_min = inst->transformed_aabb.position;
+	// 		Vector3 aabb_max = inst->transformed_aabb.position + inst->transformed_aabb.size;
+	// 		float surface_distance = Vector3(0.0, 0.0, 0.0).max(aabb_min - camera_position).max(camera_position - aabb_max).length_squared();
+	// 		// float surface_distance = (inst->transformed_aabb.get_center() - camera_position).length();
+	// 		float radius = (inst->transformed_aabb.get_center() - inst->transformed_aabb.position).length_squared();
+	// 		float theta = 2.0f * atanf(radius / surface_distance);
+	// 		float theta_deg = Math::rad_to_deg(theta);
+	// 		float size = theta_deg / p_camera_data->main_projection.get_fov();
+	// 		size = CLAMP(size, 0.0f, 1.0f);
+	// 		float xxx = pow(size, 0.1f);
+	// 		xxx = floor(14.0f * xxx);
+	// 		// xxx = CLAMP(xxx, 0.0f, 10.0f);
+	// 		// if(!idata.lod_visible) {
+	// 		// 	xxx = CLAMP(xxx, 0.0f, 5.0f);
+	// 		// }
+	// 		// RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, xxx);
+	// 	}
+	// }
+	// if(	RenderForwardClustered::get_singleton()->material_feedback_done){
+	// 	RenderForwardClustered::get_singleton()->material_feedback_done = false;
+	// uint64_t count = scenario->instance_data.size();
+	// static uint64_t mat_start = 0;
+	// for (uint64_t i = mat_start; i < mat_start+count && i < scenario->instance_data.size(); i++) {
+	// 	bool mesh_visible = false;
+
+	// 	InstanceData &idata = scenario->instance_data[i];
+	// 	uint32_t base_type = idata.flags & InstanceData::FLAG_BASE_TYPE_MASK;
+	// 	if(!mesh_visible && (base_type == RS::INSTANCE_MESH)) {
+	// 	// 	// Not visible
+	// 	// 	// fprintf(stderr, "Not visible\n");
+	// 		RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, -1);
+	// 		// RSG::mesh_storage->mesh_update_material_lod(idata.instance->base, -1);
+	// 	}
+	// }
+	// 	mat_start += count;
+	// 	if(mat_start > scenario->instance_data.size())
+	// 		mat_start = 0;
+	// }
 }
 
 RID RendererSceneCull::_render_get_environment(RID p_camera, RID p_scenario) {

@@ -325,6 +325,7 @@ private:
 			float compressed_aabb_position[4];
 			float compressed_aabb_size[4];
 			float uv_scale[4];
+			uint32_t material_offset;
 		};
 
 		UBO ubo;
@@ -345,6 +346,7 @@ private:
 
 		RID material_feedback_buffer[RENDER_LIST_MAX];
 		uint32_t material_feedback_buffer_size[RENDER_LIST_MAX] = { 0, 0, 0, 0 };
+		// void* material_feedback_buffer_ptr[RENDER_LIST_MAX] = {nullptr, nullptr, nullptr, nullptr};
 
 		LightmapCaptureData *lightmap_captures = nullptr;
 		uint32_t max_lightmap_captures;
@@ -641,6 +643,7 @@ private:
 	RenderList render_list[RENDER_LIST_MAX];
 	uint64_t material_feedback_cycle1;
 	uint64_t material_feedback_cycle2;
+	bool material_feedback_busy = false;
 	LocalVector<RID> material_feedback_map[RENDER_LIST_MAX];
 
 	virtual void _update_shader_quality_settings() override;
@@ -689,7 +692,9 @@ private:
 	/* Debug */
 	void _debug_draw_cluster(Ref<RenderSceneBuffersRD> p_render_buffers);
 
+	static void _material_feedback_post();
 	static void _material_feedback_callback(PackedByteArray const &array);
+	void _material_feedback_callback_real(PackedByteArray const &array);
 
 protected:
 	/* setup */

@@ -1513,14 +1513,9 @@ RDD::BufferID RenderingDeviceDriverVulkan::buffer_create(uint64_t p_size, BitFie
 		} break;
 		case MEMORY_ALLOCATION_TYPE_GPU: {
 			alloc_create_info.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-			if (p_size <= SMALL_ALLOCATION_MAX_SIZE) {
-				uint32_t mem_type_index = 0;
-				vmaFindMemoryTypeIndexForBufferInfo(allocator, &create_info, &alloc_create_info, &mem_type_index);
-				alloc_create_info.pool = _find_or_create_small_allocs_pool(mem_type_index);
+			if (p_usage.has_flag(BUFFER_USAGE_HOST_VISIBLE_BIT)) {
+				alloc_create_info.requiredFlags = (VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			}
-		} break;
-		case MEMORY_ALLOCATION_TYPE_GPU_HOST_VISIBLE: {
-			alloc_create_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 			if (p_size <= SMALL_ALLOCATION_MAX_SIZE) {
 				uint32_t mem_type_index = 0;
 				vmaFindMemoryTypeIndexForBufferInfo(allocator, &create_info, &alloc_create_info, &mem_type_index);

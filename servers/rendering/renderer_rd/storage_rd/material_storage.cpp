@@ -2450,16 +2450,83 @@ MaterialStorage::MaterialDataRequestFunction MaterialStorage::material_get_data_
 	return material_data_request_func[p_shader_type];
 }
 
-void MaterialStorage::material_set_lod(RID p_material, uint64_t p_frame, float p_lod) {
-	Material *material = material_owner.get_or_null(p_material);
-	if (!material)
+void MaterialStorage::material_set_lod(RID p_material, uint64_t p_frame, int p_requested_resolution) {
+	if (p_material.is_null() && p_frame == 0) {
+		fprintf(stderr, "update\n");
+		_update_queued_lod_materials();
 		return;
+	}
 
-	if (material->data && !material->data->lod_texture_cache.is_empty()) {
+	Material *material = material_owner.get_or_null(p_material);
+	if (!material) {
+		return;
+	}
+
+	// fprintf(stderr, "p_requested_resolution=%i %u %u\n", p_requested_resolution, material->new_requested_resolution, material->requested_resolution);
+	if (p_requested_resolution > 0 && p_requested_resolution > material->new_requested_resolution) {
+		material->new_requested_resolution = p_requested_resolution;
+	}
+
+	if (p_requested_resolution == -1) {
+		if (material->new_requested_resolution != material->requested_resolution && material->new_requested_resolution > 0) {
+			int new_resolution = material->requested_resolution;
+			fprintf(stderr, "1 %lu material change requested=%i current=%i \n", p_material.get_id(), material->new_requested_resolution, material->requested_resolution);
+			if (new_resolution < 32)
+				new_resolution = 32; // cap the min resolution we keep around
+
+			// material->requested_resolution = material->new_requested_resolution;
+			if (material->requested_resolution < 16384 && new_resolution < material->new_requested_resolution) {
+				if (material->load_delay > 10) {
+					new_resolution <<= 1; // bump up by one power of 2
+					material->unload_delay = 0;
+					material->load_delay = 0;
+				} else {
+					material->load_delay++;
+				}
+			} else if (material->requested_resolution > 32 && new_resolution > material->new_requested_resolution) {
+				if (material->unload_delay > 10) {
+					new_resolution >>= 1; // bump lower by one power of 2
+					material->unload_delay = 0;
+					material->load_delay = 0;
+				} else {
+					fprintf(stderr, "2 %lu WAITING %u \n", p_material.get_id(), material->unload_delay);
+					material->unload_delay++;
+				}
+			}
+
+			if (new_resolution != material->requested_resolution) {
+				material->requested_resolution = new_resolution;
+				fprintf(stderr, "2 %lu material change new=%i \n", p_material.get_id(), material->requested_resolution);
+				if (material->data && !material->data->lod_texture_cache.is_empty()) {
+					_material_queue_lod_update(material);
+				}
+			}
+		}
+
+		// Reset back to zero until we measure again.
+		material->new_requested_resolution = 0;
+	}
+}
+
+void MaterialStorage::_material_queue_lod_update(Material *material) {
+	MutexLock lock(material_lod_update_list_mutex);
+
+	if (material->update_element.in_list()) {
+		return;
+	}
+
+	material_lod_update_list.add(&material->update_element);
+}
+
+void MaterialStorage::_update_queued_lod_materials() {
+	MutexLock lock(material_lod_update_list_mutex);
+	while (material_lod_update_list.first()) {
+		Material *material = material_lod_update_list.first()->self();
+		fprintf(stderr, "material %lu\n", material->self.get_id());
 		for (uint32_t i = 0; i < material->data->lod_texture_cache.size(); i++) {
 			RID tex_rid = material->data->lod_texture_cache[i];
-			// RSG::texture_storage->texture_set_lod(tex_rid, p_frame, p_lod);
-			RSG::texture_storage->texture_set_lod2(tex_rid, p_frame, p_lod);
+			RSG::texture_storage->texture_set_lod2(tex_rid, 0, material->requested_resolution);
+			material_lod_update_list.remove(&material->update_element);
 		}
 	}
 }

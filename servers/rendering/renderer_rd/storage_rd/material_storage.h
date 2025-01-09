@@ -253,6 +253,12 @@ private:
 
 		Dependency dependency;
 
+		bool visible = false;
+		uint32_t unload_delay = 0;
+		uint32_t load_delay = 0;
+		uint32_t requested_resolution = 1;
+		uint32_t new_requested_resolution = 0;
+
 		Material() :
 				update_element(this) {}
 	};
@@ -265,6 +271,9 @@ private:
 	Mutex material_update_list_mutex;
 
 	static void _material_uniform_set_erased(void *p_material);
+
+	SelfList<Material>::List material_lod_update_list;
+	Mutex material_lod_update_list_mutex;
 
 public:
 	static MaterialStorage *get_singleton();
@@ -433,6 +442,9 @@ public:
 	void _material_queue_update(Material *material, bool p_uniform, bool p_texture);
 	void _update_queued_materials();
 
+	void _material_queue_lod_update(Material *material);
+	void _update_queued_lod_materials();
+
 	virtual RID material_allocate() override;
 	virtual void material_initialize(RID p_material) override;
 	virtual void material_free(RID p_rid) override;
@@ -471,7 +483,7 @@ public:
 		}
 	}
 
-	virtual void material_set_lod(RID p_material, uint64_t p_frame, float p_lod) override;
+	virtual void material_set_lod(RID p_material, uint64_t p_frame, int p_requested_resolution) override;
 };
 
 } // namespace RendererRD

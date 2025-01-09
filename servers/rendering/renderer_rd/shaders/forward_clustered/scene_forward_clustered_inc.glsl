@@ -331,6 +331,7 @@ struct InstanceData {
 	vec4 compressed_aabb_position_pad; // Only .xyz is used. .w is padding.
 	vec4 compressed_aabb_size_pad; // Only .xyz is used. .w is padding.
 	vec4 uv_scale;
+	uint material_offset;
 };
 
 layout(set = 1, binding = 2, std430) buffer restrict readonly InstanceDataBuffer {
@@ -338,7 +339,8 @@ layout(set = 1, binding = 2, std430) buffer restrict readonly InstanceDataBuffer
 }
 instances;
 
-layout(set = 1, binding = 35, std430) coherent buffer MaterialFeedbackBuffer {
+layout(set = 1, binding = 35, std430) restrict buffer MaterialFeedbackBuffer {
+	uint batch;
 	uint data[];
 }
 material_feedback;
