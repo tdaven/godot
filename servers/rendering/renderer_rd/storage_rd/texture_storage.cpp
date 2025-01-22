@@ -35,6 +35,7 @@
 #include "material_storage.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 
+#include "core/object/worker_thread_pool.h"
 using namespace RendererRD;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -4246,4 +4247,47 @@ uint32_t TextureStorage::render_target_get_color_usage_bits(bool p_msaa) {
 		// FIXME: Storage bit should only be requested when FSR is required.
 		return RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
 	}
+}
+
+void TextureStorage::_texture_request_resolution(RID tex_rid, uint32_t requested_resolution) {
+	Texture *tex = texture_owner.get_or_null(tex_rid);
+	ERR_FAIL_NULL(tex);
+
+	if (requested_resolution > tex->new_requested_resolution || requested_resolution == 0) {
+		tex->new_requested_resolution = requested_resolution;
+		// fprintf(stderr, "_texture_request_resolution %lu %u\n", tex_rid.get_id(), tex->new_requested_resolution);
+	}
+}
+
+void TextureStorage::_texture_request_process(RID tex_rid, uint64_t tick, LocalVector<RID> &textures_to_update) {
+	Texture *tex = texture_owner.get_or_null(tex_rid);
+	ERR_FAIL_NULL(tex);
+
+	if (tex->new_requested_resolution > 0 && tex->requested_resolution != tex->new_requested_resolution) {
+		tex->requested_resolution = tex->new_requested_resolution;
+
+		if (tex->lod_queued_tick != tick) {
+			tex->lod_queued_tick = tick;
+			// fprintf(stderr, "_texture_request_process queue-to-update %lu %u\n", tex_rid.get_id(), tex->requested_resolution);
+			textures_to_update.push_back(tex_rid);
+		}
+	}
+
+	tex->new_requested_resolution = 0;
+}
+
+void TextureStorage::_texture_request_update(RID tex_rid) {
+	Texture *tex = texture_owner.get_or_null(tex_rid);
+	ERR_FAIL_NULL(tex);
+
+	if (tex && tex->lod_callback) {
+		tex->lod_callback(tex->requested_resolution, tex->lod_callback_ud);
+	}
+}
+
+void TextureStorage::texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_NULL(tex);
+	tex->lod_callback = p_callback;
+	tex->lod_callback_ud = p_userdata;
 }

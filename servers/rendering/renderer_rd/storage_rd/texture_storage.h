@@ -191,6 +191,12 @@ private:
 		RS::TextureDetectRoughnessCallback detect_roughness_callback = nullptr;
 		void *detect_roughness_callback_ud = nullptr;
 
+		uint32_t new_requested_resolution = 0;
+		uint32_t requested_resolution = 0;
+		uint64_t lod_queued_tick = 0;
+		RS::TextureLodCallback lod_callback = nullptr;
+		void *lod_callback_ud = nullptr;
+
 		CanvasTexture *canvas_texture = nullptr;
 
 		void cleanup();
@@ -199,6 +205,11 @@ private:
 	// Textures can be created from threads, so this RID_Owner is thread safe.
 	mutable RID_Owner<Texture, true> texture_owner;
 	Texture *get_texture(RID p_rid) { return texture_owner.get_or_null(p_rid); }
+
+	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override;
+	void _texture_request_resolution(RID tex_rid, uint32_t requested_resolution);
+	void _texture_request_process(RID tex_rid, uint64_t tick, LocalVector<RID> &textures_to_update);
+	void _texture_request_update(RID tex_rid);
 
 	struct TextureToRDFormat {
 		RD::DataFormat format;

@@ -1110,6 +1110,18 @@ vec3 encode24(vec3 v) {
 }
 #endif // MODE_RENDER_NORMAL_ROUGHNESS
 
+float get_lod(ivec2 dim, vec2 uv_dx, vec2 uv_dy) {
+	return log2(max(length(uv_dx * dim), length(uv_dy * dim)));
+}
+
+void material_feedback_write(in uint materialIndex, in vec2 uv) {
+	const vec2 uvsets_dx = dFdx(uv);
+	const vec2 uvsets_dy = dFdy(uv);
+	const float lod_uvset0 = get_lod(ivec2(16384u), uvsets_dx.xy, uvsets_dy.xy);
+	const uint resolution0 = 16384u >> uint(max(0, lod_uvset0));
+	atomicOr(material_feedback.data[materialIndex], resolution0);
+}
+
 void fragment_shader(in SceneData scene_data) {
 	uint instance_index = instance_index_interp;
 
@@ -1191,6 +1203,13 @@ void fragment_shader(in SceneData scene_data) {
 #if defined(NORMAL_MAP_USED)
 
 	vec3 normal_map = vec3(0.5);
+#endif
+
+#if defined(UV_USED)
+	if (subgroupElect()) {
+		uint material_feedback_index = instances.data[instance_index].material_feedback_index;
+		material_feedback_write(material_feedback_index, uv_interp);
+	}
 #endif
 
 	float normal_map_depth = 1.0;

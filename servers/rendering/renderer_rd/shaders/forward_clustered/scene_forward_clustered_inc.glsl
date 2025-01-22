@@ -329,7 +329,8 @@ struct InstanceData {
 	uint layer_mask;
 	vec4 lightmap_uv_scale;
 	vec4 compressed_aabb_position_pad; // Only .xyz is used. .w is padding.
-	vec4 compressed_aabb_size_pad; // Only .xyz is used. .w is padding.
+	vec3 compressed_aabb_size_pad; // Only .xyz is used. .w is padding.
+	uint material_feedback_index;
 	vec4 uv_scale;
 };
 
@@ -337,6 +338,11 @@ layout(set = 1, binding = 2, std430) buffer restrict readonly InstanceDataBuffer
 	InstanceData data[];
 }
 instances;
+
+layout(set = 1, binding = 35, std430) restrict buffer MaterialFeedbackBuffer {
+	uint data[];
+}
+material_feedback;
 
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 
