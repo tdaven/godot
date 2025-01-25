@@ -29,9 +29,9 @@
 /**************************************************************************/
 
 #include "texture_storage.h"
-
 #include "../effects/copy_effects.h"
 #include "../framebuffer_cache_rd.h"
+#include "core/config/project_settings.h"
 #include "material_storage.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 
@@ -551,6 +551,12 @@ TextureStorage::TextureStorage() {
 		// Alternate checkerboard pattern on odd layers (by using a copy that is rotated 90 degrees).
 		texture_3d_placeholder.push_back(i % 2 == 0 ? texture_2d_placeholder : texture_2d_placeholder_rotated);
 	}
+
+	texture_max_resolution_setting = 32 << (uint32_t(GLOBAL_GET("rendering/textures/streaming/max_dimension")));
+	texture_max_resolution = texture_max_resolution_setting;
+	fprintf(stderr, "texture_max_resolution=%u\n", texture_max_resolution_setting);
+
+	texture_set_streaming_enabled(GLOBAL_GET("rendering/textures/streaming/enabled"));
 }
 
 TextureStorage::~TextureStorage() {
@@ -4263,13 +4269,26 @@ void TextureStorage::_texture_request_process(RID tex_rid, uint64_t tick, LocalV
 	Texture *tex = texture_owner.get_or_null(tex_rid);
 	ERR_FAIL_NULL(tex);
 
-	if (tex->new_requested_resolution > 0 && tex->requested_resolution != tex->new_requested_resolution) {
-		tex->requested_resolution = tex->new_requested_resolution;
+	if (tex->new_requested_resolution > 0) {
+		bool clamped = false;
+		if (tex->new_requested_resolution > texture_max_resolution) {
+			clamped = true;
+			tex->new_requested_resolution = texture_max_resolution;
+		}
 
-		if (tex->lod_queued_tick != tick) {
-			tex->lod_queued_tick = tick;
-			// fprintf(stderr, "_texture_request_process queue-to-update %lu %u\n", tex_rid.get_id(), tex->requested_resolution);
-			textures_to_update.push_back(tex_rid);
+		if (tex->new_requested_resolution < texture_min_resolution) {
+			clamped = true;
+			tex->new_requested_resolution = texture_min_resolution;
+		}
+
+		if (tex->requested_resolution != tex->new_requested_resolution || clamped) {
+			tex->requested_resolution = tex->new_requested_resolution;
+
+			if (tex->lod_queued_tick != tick || clamped) {
+				tex->lod_queued_tick = tick;
+				// fprintf(stderr, "_texture_request_process queue-to-update %lu %u\n", tex_rid.get_id(), tex->requested_resolution);
+				textures_to_update.push_back(tex_rid);
+			}
 		}
 	}
 
@@ -4283,6 +4302,10 @@ void TextureStorage::_texture_request_update(RID tex_rid) {
 	if (tex && tex->lod_callback) {
 		tex->lod_callback(tex->requested_resolution, tex->lod_callback_ud);
 	}
+	// else {
+	// 	fprintf(stderr, "_texture_request_process failed to request miplevel due to missing callback %lu %u %s\n",
+	// 			tex_rid.get_id(), tex->requested_resolution, tex->path.utf8().get_data());
+	// }
 }
 
 void TextureStorage::texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) {
@@ -4290,4 +4313,39 @@ void TextureStorage::texture_set_lod_callback(RID p_texture, RS::TextureLodCallb
 	ERR_FAIL_NULL(tex);
 	tex->lod_callback = p_callback;
 	tex->lod_callback_ud = p_userdata;
+}
+
+void TextureStorage::texture_set_streaming_enabled(bool streaming) {
+	List<RID> textures;
+	texture_owner.get_owned_list(&textures);
+
+	// texture_streaming = streaming;
+	fprintf(stderr, "streaming = %i\n", streaming);
+	if (streaming) {
+		texture_min_resolution = 32u;
+		texture_max_resolution = texture_max_resolution_setting;
+	} else {
+		texture_min_resolution = 16384u;
+		texture_max_resolution = 16384u;
+	}
+
+	for (List<RID>::Element *E = textures.front(); E; E = E->next()) {
+		Texture *tex = texture_owner.get_or_null(E->get());
+		if (!tex) {
+			continue;
+		}
+		if (tex->requested_resolution < texture_min_resolution) {
+			tex->requested_resolution = texture_min_resolution;
+			tex->new_requested_resolution = 0;
+			tex->lod_queued_tick = 0;
+			if (tex && tex->lod_callback) {
+				tex->lod_callback(texture_min_resolution, tex->lod_callback_ud);
+			}
+		}
+	}
+}
+
+void TextureStorage::texture_set_streaming_max_resolution(uint32_t max) {
+	texture_max_resolution_setting = CLAMP(max, 32u, 16384u);
+	texture_max_resolution = texture_max_resolution_setting;
 }

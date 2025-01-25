@@ -167,6 +167,9 @@ public:
 
 	typedef void (*TextureLodCallback)(uint32_t p_resolution, void *p_userdata);
 	virtual void texture_set_lod_callback(RID p_texture, TextureLodCallback p_callback, void *p_userdata) = 0;
+	virtual void texture_set_streaming_enabled(bool streaming) = 0;
+	virtual void texture_set_streaming_max_resolution(uint32_t max) = 0;
+
 	enum TextureDetectRoughnessChannel {
 		TEXTURE_DETECT_ROUGHNESS_R,
 		TEXTURE_DETECT_ROUGHNESS_G,

@@ -75,22 +75,6 @@ private:
 	static void _requested_roughness(void *p_ud, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);
 	static void _requested_normal(void *p_ud);
 
-	// void texture_reload() {
-	// 	// TODO - this should clamp to max and compare to the currently loaded res.
-	// 	// if(_resolution > (uint32_t)w && _resolution > (uint32_t)h) {
-	// 	// 	// fprintf(stderr, "reload skipped\n");
-	// 	// 	return;
-	// 	// }
-
-	// 	fprintf(stderr, "reload %s %lu %u\n", path_to_file.utf8().get_data(), texture.get_id(), _resolution);
-	// 	// if ("res://level/textures/props/mid_cargo_box_albedo.png" == get_path())
-	// }
-
-	// static void handle_texture_reload(void *data) {
-	// 	CompressedTexture2D *_this = static_cast<CompressedTexture2D *>(data);
-	// 	_this->texture_reload();
-	// }
-
 	uint32_t _resolution = 16384;
 
 	float last_lod = 0.0f;
@@ -98,6 +82,7 @@ private:
 		uint32_t lod = CLAMP(p_resolution, 16u, 16384u);
 		if (_resolution != lod) {
 			_resolution = lod;
+			// fprintf(stderr, "reload %s %lu %u\n", path_to_file.utf8().get_data(), texture.get_id(), _resolution);
 			load(path_to_file);
 		}
 	}

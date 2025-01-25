@@ -2475,14 +2475,11 @@ void MaterialStorage::_lod_set_resolution(RID p_material, uint64_t p_mono_time, 
 			material->new_requested_resolution >>= 1;
 			material->last_changed_time = p_mono_time;
 		}
-		// material->new_requested_resolution = x;
-		// fprintf(stderr, "LOD %lu %u %u\n", material->self.get_id(), material->new_requested_resolution, p_requested_resolution);
 	}
 
 	material->last_used_time = p_mono_time;
 	if (material->data) {
 		if (!material->active_element.in_list() && !material->data->lod_texture_cache.is_empty()) {
-			// fprintf(stderr, "ADD %lu\n", material->self.get_id());
 			active_material_list.add(&material->active_element);
 		}
 
@@ -2501,8 +2498,6 @@ void MaterialStorage::_lod_process_materials(uint64_t p_mono_time) {
 		}
 		task_id = WorkerThreadPool::INVALID_TASK_ID;
 		textures_to_update.clear();
-		;
-		// fprintf(stderr, "DONE\n\n");
 	}
 
 	SelfList<Material> *E = active_material_list.first();

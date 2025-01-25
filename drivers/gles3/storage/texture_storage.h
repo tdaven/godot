@@ -712,6 +712,8 @@ public:
 	String get_framebuffer_error(GLenum p_status);
 
 	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override {}
+	virtual void texture_set_streaming_enabled(bool streaming) override {}
+	virtual void texture_set_streaming_max_resolution(uint32_t max) override {}
 };
 
 inline String TextureStorage::get_framebuffer_error(GLenum p_status) {

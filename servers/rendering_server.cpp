@@ -2275,6 +2275,9 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("texture_set_path", "texture", "path"), &RenderingServer::texture_set_path);
 	ClassDB::bind_method(D_METHOD("texture_get_path", "texture"), &RenderingServer::texture_get_path);
 
+	ClassDB::bind_method(D_METHOD("texture_set_streaming_max_resolution", "max"), &RenderingServer::texture_set_streaming_max_resolution);
+	ClassDB::bind_method(D_METHOD("texture_set_streaming_enabled", "enabled"), &RenderingServer::texture_set_streaming_enabled);
+
 	ClassDB::bind_method(D_METHOD("texture_get_format", "texture"), &RenderingServer::texture_get_format);
 
 	ClassDB::bind_method(D_METHOD("texture_set_force_redraw_if_visible", "texture", "enable"), &RenderingServer::texture_set_force_redraw_if_visible);
@@ -3735,6 +3738,9 @@ void RenderingServer::init() {
 		GLOBAL_DEF("debug/shader_language/warnings/" + ShaderWarning::get_name_from_code((ShaderWarning::Code)i).to_lower(), true);
 	}
 #endif
+
+	GLOBAL_DEF("rendering/textures/streaming/enabled", true);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/max_dimension", PROPERTY_HINT_ENUM, "32,64,128,256,512,1024,2048,4096,8192,16384"), 9);
 }
 
 RenderingServer::~RenderingServer() {

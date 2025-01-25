@@ -207,9 +207,14 @@ private:
 	Texture *get_texture(RID p_rid) { return texture_owner.get_or_null(p_rid); }
 
 	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override;
+	virtual void texture_set_streaming_enabled(bool streaming) override;
+	virtual void texture_set_streaming_max_resolution(uint32_t max) override;
 	void _texture_request_resolution(RID tex_rid, uint32_t requested_resolution);
 	void _texture_request_process(RID tex_rid, uint64_t tick, LocalVector<RID> &textures_to_update);
 	void _texture_request_update(RID tex_rid);
+	uint32_t texture_max_resolution_setting = 16384u;
+	uint32_t texture_max_resolution = 16384u;
+	uint32_t texture_min_resolution = 32u;
 
 	struct TextureToRDFormat {
 		RD::DataFormat format;

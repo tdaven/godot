@@ -235,6 +235,9 @@ public:
 	FUNC2RC(uint64_t, texture_get_native_handle, RID, bool)
 
 	FUNC3(texture_set_lod_callback, RID, TextureLodCallback, void *);
+	FUNC1(texture_set_streaming_enabled, bool);
+	FUNC1(texture_set_streaming_max_resolution, uint32_t);
+
 	/* SHADER API */
 
 #undef ServerName
