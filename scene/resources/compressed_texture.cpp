@@ -189,6 +189,8 @@ Error CompressedTexture2D::load(const String &p_path) {
 	}
 
 #endif
+	// TODO - This can trigger errors when called from texture streaming since it needs to be on main thread.
+	//        Plan is to just try to use the resource loader path which already guards this.
 	notify_property_list_changed();
 	emit_changed();
 	return OK;
