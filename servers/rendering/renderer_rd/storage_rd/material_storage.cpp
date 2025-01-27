@@ -2465,13 +2465,13 @@ void MaterialStorage::_lod_set_resolution(RID p_material, uint64_t p_mono_time, 
 	uint32_t x = 1u << (32ul - __builtin_clz(y));
 
 	if (material->new_requested_resolution != x) {
-		material->new_requested_resolution = CLAMP(material->new_requested_resolution, 16u, 16384u);
+		material->new_requested_resolution = CLAMP(material->new_requested_resolution, 32u, 16384u);
 		if (material->new_requested_resolution < 16384 && x > material->new_requested_resolution /*&& ((p_mono_time - material->last_changed_time) > 1000)*/) {
 			material->new_requested_resolution = x;
 			material->last_changed_time = p_mono_time;
 		}
 
-		if (material->new_requested_resolution > 16 && x < material->new_requested_resolution && ((p_mono_time - material->last_changed_time) > 5000)) {
+		if (material->new_requested_resolution > 32u && x < material->new_requested_resolution && ((p_mono_time - material->last_changed_time) > 5000)) {
 			material->new_requested_resolution >>= 1;
 			material->last_changed_time = p_mono_time;
 		}
@@ -2508,7 +2508,7 @@ void MaterialStorage::_lod_process_materials(uint64_t p_mono_time) {
 		const uint64_t time_since_last_use = p_mono_time - material->last_used_time;
 		if (time_since_last_use > 5000) {
 			// fprintf(stderr, "REMOVE %lu\n", material->self.get_id());
-			if (material->new_requested_resolution > 16) {
+			if (material->new_requested_resolution > 32u) {
 				material->last_used_time = p_mono_time;
 				material->new_requested_resolution >>= 1;
 			} else {
@@ -2531,7 +2531,7 @@ void MaterialStorage::_lod_process_materials(uint64_t p_mono_time) {
 
 	if (textures_to_update.size() > 0) {
 		// fprintf(stderr, "START %u\n", textures_to_update.size());
-		task_id = WorkerThreadPool::get_singleton()->add_native_group_task(&MaterialStorage::reload_material, textures_to_update.ptr(), textures_to_update.size(), 1, false, "material-lod");
+		task_id = WorkerThreadPool::get_singleton()->add_native_group_task(&MaterialStorage::reload_material, textures_to_update.ptr(), textures_to_update.size(), 2, false, "material-lod");
 	}
 }
 
@@ -2539,4 +2539,5 @@ void MaterialStorage::reload_material(void *p_data, uint32_t p_index) {
 	RID *textures_to_update = reinterpret_cast<RID *>(p_data);
 	RID tex_rid = textures_to_update[p_index];
 	RendererRD::TextureStorage::get_singleton()->_texture_request_update(tex_rid);
+	OS::get_singleton()->delay_usec(4000);
 }

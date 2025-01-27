@@ -75,6 +75,9 @@ private:
 	static void _requested_roughness(void *p_ud, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);
 	static void _requested_normal(void *p_ud);
 
+	bool texture_streaming = true;
+	void set_streaming(bool p_enable);
+	bool get_streaming() const;
 	uint32_t _resolution = 16384;
 
 	float last_lod = 0.0f;

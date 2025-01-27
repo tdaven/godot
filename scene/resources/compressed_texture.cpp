@@ -462,11 +462,23 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	return Ref<Image>();
 }
 
+void CompressedTexture2D::set_streaming(bool p_enable) {
+	texture_streaming = p_enable;
+}
+
+bool CompressedTexture2D::get_streaming() const {
+	return texture_streaming;
+}
+
 void CompressedTexture2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load", "path"), &CompressedTexture2D::load);
 	ClassDB::bind_method(D_METHOD("get_load_path"), &CompressedTexture2D::get_load_path);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "load_path", PROPERTY_HINT_FILE, "*.ctex"), "load", "get_load_path");
+
+	ClassDB::bind_method(D_METHOD("set_streaming", "enable"), &CompressedTexture2D::set_streaming);
+	ClassDB::bind_method(D_METHOD("get_streaming"), &CompressedTexture2D::get_streaming);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "texture_streaming"), "set_streaming", "get_streaming");
 }
 
 CompressedTexture2D::CompressedTexture2D() {}

@@ -4261,7 +4261,6 @@ void TextureStorage::_texture_request_resolution(RID tex_rid, uint32_t requested
 
 	if (requested_resolution > tex->new_requested_resolution || requested_resolution == 0) {
 		tex->new_requested_resolution = requested_resolution;
-		// fprintf(stderr, "_texture_request_resolution %lu %u\n", tex_rid.get_id(), tex->new_requested_resolution);
 	}
 }
 
@@ -4286,7 +4285,6 @@ void TextureStorage::_texture_request_process(RID tex_rid, uint64_t tick, LocalV
 
 			if (tex->lod_queued_tick != tick || clamped) {
 				tex->lod_queued_tick = tick;
-				// fprintf(stderr, "_texture_request_process queue-to-update %lu %u\n", tex_rid.get_id(), tex->requested_resolution);
 				textures_to_update.push_back(tex_rid);
 			}
 		}
@@ -4302,10 +4300,6 @@ void TextureStorage::_texture_request_update(RID tex_rid) {
 	if (tex && tex->lod_callback) {
 		tex->lod_callback(tex->requested_resolution, tex->lod_callback_ud);
 	}
-	// else {
-	// 	fprintf(stderr, "_texture_request_process failed to request miplevel due to missing callback %lu %u %s\n",
-	// 			tex_rid.get_id(), tex->requested_resolution, tex->path.utf8().get_data());
-	// }
 }
 
 void TextureStorage::texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) {
