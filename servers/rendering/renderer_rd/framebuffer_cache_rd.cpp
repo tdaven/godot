@@ -52,7 +52,7 @@ void FramebufferCacheRD::_invalidate(Cache *p_cache) {
 	cache_allocator.free(p_cache);
 	cache_instances_used--;
 }
-void FramebufferCacheRD::_framebuffer_invalidation_callback(void *p_userdata) {
+void FramebufferCacheRD::_framebuffer_invalidation_callback(void *p_userdata, int) {
 	singleton->_invalidate(reinterpret_cast<Cache *>(p_userdata));
 }
 

@@ -77,7 +77,7 @@ public:
 	typedef Vector<uint8_t> (*ShaderCompileToSPIRVFunction)(ShaderStage p_stage, const String &p_source_code, ShaderLanguage p_language, String *r_error, const RenderingDevice *p_render_device);
 	typedef Vector<uint8_t> (*ShaderCacheFunction)(ShaderStage p_stage, const String &p_source_code, ShaderLanguage p_language);
 
-	typedef void (*InvalidationCallback)(void *);
+	typedef void (*InvalidationCallback)(void *, int reason);
 
 private:
 	static ShaderCompileToSPIRVFunction compile_to_spirv_function;
@@ -410,6 +410,7 @@ public:
 	RID texture_create_from_extension(TextureType p_type, DataFormat p_format, TextureSamples p_samples, BitField<RenderingDevice::TextureUsageBits> p_usage, uint64_t p_image, uint64_t p_width, uint64_t p_height, uint64_t p_depth, uint64_t p_layers);
 	RID texture_create_shared_from_slice(const TextureView &p_view, RID p_with_texture, uint32_t p_layer, uint32_t p_mipmap, uint32_t p_mipmaps = 1, TextureSliceType p_slice_type = TEXTURE_SLICE_2D, uint32_t p_layers = 0);
 	Error texture_update(RID p_texture, uint32_t p_layer, const Vector<uint8_t> &p_data);
+	// Error _texture_replace(RID p_texture, RID p_by_texture);
 	Vector<uint8_t> texture_get_data(RID p_texture, uint32_t p_layer); // CPU textures will return immediately, while GPU textures will most likely force a flush
 	Error texture_get_data_async(RID p_texture, uint32_t p_layer, const Callable &p_callback);
 
@@ -1581,6 +1582,7 @@ protected:
 			RenderingDeviceDriver::SemaphoreID p_dst_draw_semaphore_to_signal);
 
 public:
+	void _free_internal(Texture *texture);
 	void _free_internal(RID p_id);
 	void _begin_frame(bool p_presented = false);
 	void _end_frame();

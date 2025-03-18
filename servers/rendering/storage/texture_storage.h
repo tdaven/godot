@@ -192,4 +192,8 @@ public:
 	// Motion vectors
 	virtual void render_target_set_velocity_target_size(RID p_render_target, const Size2i &p_target_size) = 0;
 	virtual Size2i render_target_get_velocity_target_size(RID p_render_target) const = 0;
+
+	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) = 0;
+	virtual void texture_set_streaming_enabled(bool streaming) = 0;
+	virtual void texture_set_streaming_max_resolution(uint32_t max) = 0;
 };

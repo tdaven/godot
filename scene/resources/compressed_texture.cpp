@@ -79,7 +79,7 @@ Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r
 		p_size_limit = 0;
 	}
 
-	image = load_image_from_file(f, p_size_limit);
+	image = load_image_from_file(f, p_size_limit, _resolution);
 
 	if (image.is_null() || image->is_empty()) {
 		return ERR_CANT_OPEN;
@@ -150,6 +150,11 @@ Error CompressedTexture2D::load(const String &p_path) {
 		RS::get_singleton()->texture_set_size_override(texture, lw, lh);
 	}
 
+	if (image->is_compressed()) {
+		RS::get_singleton()->texture_set_lod_callback(texture, lod_callback, this);
+		RenderingServer::get_singleton()->texture_set_path(texture, p_path);
+	}
+
 	w = lw;
 	h = lh;
 	path_to_file = p_path;
@@ -187,6 +192,8 @@ Error CompressedTexture2D::load(const String &p_path) {
 	}
 
 #endif
+	// TODO - This can trigger errors when called from texture streaming since it needs to be on main thread.
+	//        Plan is to just try to use the resource loader path which already guards this.
 	notify_property_list_changed();
 	emit_changed();
 	return OK;
@@ -296,7 +303,7 @@ void CompressedTexture2D::reload_from_file() {
 void CompressedTexture2D::_validate_property(PropertyInfo &p_property) const {
 }
 
-Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_size_limit) {
+Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_size_limit, uint32_t p_min_lod) {
 	uint32_t data_format = f->get_32();
 	uint32_t w = f->get_16();
 	uint32_t h = f->get_16();
@@ -422,6 +429,9 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	} else if (data_format == DATA_FORMAT_IMAGE) {
 		int size = Image::get_image_data_size(w, h, format, mipmaps ? true : false);
 
+		// if(p_min_lod > 1024)
+		// 	p_min_lod = 1024;
+
 		for (uint32_t i = 0; i < mipmaps + 1; i++) {
 			int tw, th;
 			int ofs = Image::get_image_mipmap_offset_and_dimensions(w, h, format, i, tw, th);
@@ -432,6 +442,13 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 				}
 				continue; //oops, size limit enforced, go to next
 			}
+
+			if (p_min_lod >= 0 && ((p_min_lod < (uint32_t)tw) || (p_min_lod < (uint32_t)th))) {
+				// fprintf(stderr, "skipping mip level %i max=%u [%i %i] \n", i, p_min_lod, tw, th);
+				continue;
+			}
+
+			f->seek(f->get_position() + ofs);
 
 			Vector<uint8_t> data;
 			data.resize(size - ofs);
@@ -450,11 +467,23 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	return Ref<Image>();
 }
 
+void CompressedTexture2D::set_streaming(bool p_enable) {
+	texture_streaming = p_enable;
+}
+
+bool CompressedTexture2D::get_streaming() const {
+	return texture_streaming;
+}
+
 void CompressedTexture2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load", "path"), &CompressedTexture2D::load);
 	ClassDB::bind_method(D_METHOD("get_load_path"), &CompressedTexture2D::get_load_path);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "load_path", PROPERTY_HINT_FILE, "*.ctex"), "load", "get_load_path");
+
+	ClassDB::bind_method(D_METHOD("set_streaming", "enable"), &CompressedTexture2D::set_streaming);
+	ClassDB::bind_method(D_METHOD("get_streaming"), &CompressedTexture2D::get_streaming);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "texture_streaming"), "set_streaming", "get_streaming");
 }
 
 CompressedTexture2D::CompressedTexture2D() {}

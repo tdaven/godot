@@ -32,6 +32,7 @@
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/io/resource_loader.h"
+#include "core/object/callable_method_pointer.h"
 #include "servers/rendering/renderer_rd/forward_clustered/scene_shader_forward_clustered.h"
 #include "servers/rendering/renderer_rd/forward_mobile/scene_shader_forward_mobile.h"
 #include "servers/rendering/storage/variant_converters.h"
@@ -863,6 +864,7 @@ void MaterialStorage::MaterialData::update_textures(const HashMap<StringName, Va
 
 	bool uses_global_textures = false;
 	global_textures_pass++;
+	lod_texture_cache.clear();
 
 	for (int i = 0, k = 0; i < p_texture_uniforms.size(); i++) {
 		const StringName &uniform_name = p_texture_uniforms[i].name;
@@ -1049,6 +1051,12 @@ void MaterialStorage::MaterialData::update_textures(const HashMap<StringName, Va
 				p_textures[k++] = rd_texture;
 			}
 		}
+
+		for (int j = 0; j < textures.size(); j++) {
+			if (!lod_texture_cache.has(textures[j])) {
+				lod_texture_cache.push_back(textures[j]);
+			}
+		}
 	}
 	{
 		//for textures no longer used, unregister them
@@ -1158,7 +1166,7 @@ bool MaterialStorage::MaterialData::update_parameters_uniform_set(const HashMap<
 			uniforms.push_back(u);
 		}
 
-		const RID *textures = texture_cache.ptrw();
+		const RID *textures = texture_cache.ptr();
 		for (int i = 0, k = 0; i < p_texture_uniforms.size(); i++) {
 			const int array_size = p_texture_uniforms[i].array_size;
 
@@ -1179,6 +1187,115 @@ bool MaterialStorage::MaterialData::update_parameters_uniform_set(const HashMap<
 	uniform_set = RD::get_singleton()->uniform_set_create(uniforms, p_shader, p_shader_uniform_set);
 
 	RD::get_singleton()->uniform_set_set_invalidation_callback(uniform_set, MaterialStorage::_material_uniform_set_erased, &self);
+
+	return true;
+}
+
+bool MaterialStorage::MaterialData::update_parameters_uniform_set2(
+		const HashMap<StringName, Variant> &p_parameters,
+		// bool p_uniform_dirty,
+		bool p_textures_dirty,
+		// const HashMap<StringName, ShaderLanguage::ShaderNode::Uniform> &p_uniforms,
+		// const uint32_t *p_uniform_offsets,
+		const Vector<ShaderCompiler::GeneratedCode::Texture> &p_texture_uniforms,
+		const HashMap<StringName, HashMap<int, RID>> &p_default_texture_params,
+		// uint32_t p_ubo_size,
+		// RID &uniform_set,
+		// RID p_shader,
+		// uint32_t p_shader_uniform_set,
+		bool p_use_linear_color,
+		bool p_3d_material) {
+	// if ((uint32_t)ubo_data[p_use_linear_color].size() != p_ubo_size) {
+	// 	p_uniform_dirty = true;
+	// 	if (uniform_buffer[p_use_linear_color].is_valid()) {
+	// 		RD::get_singleton()->free(uniform_buffer[p_use_linear_color]);
+	// 		uniform_buffer[p_use_linear_color] = RID();
+	// 	}
+
+	// 	ubo_data[p_use_linear_color].resize(p_ubo_size);
+	// 	if (ubo_data[p_use_linear_color].size()) {
+	// 		uniform_buffer[p_use_linear_color] = RD::get_singleton()->uniform_buffer_create(ubo_data[p_use_linear_color].size());
+	// 		memset(ubo_data[p_use_linear_color].ptrw(), 0, ubo_data[p_use_linear_color].size()); //clear
+	// 	}
+
+	// 	//clear previous uniform set
+	// 	if (uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(uniform_set)) {
+	// 		RD::get_singleton()->uniform_set_set_invalidation_callback(uniform_set, nullptr, nullptr);
+	// 		RD::get_singleton()->free(uniform_set);
+	// 		uniform_set = RID();
+	// 	}
+	// }
+
+	// //check whether buffer changed
+	// if (p_uniform_dirty && ubo_data[p_use_linear_color].size()) {
+	// 	update_uniform_buffer(p_uniforms, p_uniform_offsets, p_parameters, ubo_data[p_use_linear_color].ptrw(), ubo_data[p_use_linear_color].size(), p_use_linear_color);
+	// 	RD::get_singleton()->buffer_update(uniform_buffer[p_use_linear_color], 0, ubo_data[p_use_linear_color].size(), ubo_data[p_use_linear_color].ptrw());
+	// }
+
+	uint32_t tex_uniform_count = 0U;
+	for (int i = 0; i < p_texture_uniforms.size(); i++) {
+		tex_uniform_count += uint32_t(p_texture_uniforms[i].array_size > 0 ? p_texture_uniforms[i].array_size : 1);
+	}
+
+	// if ((uint32_t)texture_cache.size() != tex_uniform_count || p_textures_dirty) {
+	// 	texture_cache.resize(tex_uniform_count);
+	// 	render_target_cache.clear();
+	// 	p_textures_dirty = true;
+
+	// 	//clear previous uniform set
+	// 	if (uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(uniform_set)) {
+	// 		RD::get_singleton()->uniform_set_set_invalidation_callback(uniform_set, nullptr, nullptr);
+	// 		RD::get_singleton()->free(uniform_set);
+	// 		uniform_set = RID();
+	// 	}
+	// }
+
+	if (p_textures_dirty && tex_uniform_count) {
+		update_textures(p_parameters, p_default_texture_params, p_texture_uniforms, texture_cache.ptrw(), p_use_linear_color, p_3d_material);
+	}
+
+	// if (p_ubo_size == 0 && (p_texture_uniforms.size() == 0)) {
+	// 	// This material does not require an uniform set, so don't create it.
+	// 	return false;
+	// }
+
+	// if (!p_textures_dirty && uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(uniform_set)) {
+	// 	//no reason to update uniform set, only UBO (or nothing) was needed to update
+	// 	return false;
+	// }
+
+	// Vector<RD::Uniform> uniforms;
+
+	// {
+	// 	if (p_ubo_size) {
+	// 		RD::Uniform u;
+	// 		u.uniform_type = RD::UNIFORM_TYPE_UNIFORM_BUFFER;
+	// 		u.binding = 0;
+	// 		u.append_id(uniform_buffer[p_use_linear_color]);
+	// 		uniforms.push_back(u);
+	// 	}
+
+	// 	const RID *textures = texture_cache.ptrw();
+	// 	for (int i = 0, k = 0; i < p_texture_uniforms.size(); i++) {
+	// 		const int array_size = p_texture_uniforms[i].array_size;
+
+	// 		RD::Uniform u;
+	// 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+	// 		u.binding = 1 + k;
+	// 		if (array_size > 0) {
+	// 			for (int j = 0; j < array_size; j++) {
+	// 				u.append_id(textures[k++]);
+	// 			}
+	// 		} else {
+	// 			u.append_id(textures[k++]);
+	// 		}
+	// 		uniforms.push_back(u);
+	// 	}
+	// }
+
+	// uniform_set = RD::get_singleton()->uniform_set_create(uniforms, p_shader, p_shader_uniform_set);
+
+	// RD::get_singleton()->uniform_set_set_invalidation_callback(uniform_set, MaterialStorage::_material_uniform_set_erased, &self);
 
 	return true;
 }
@@ -2110,16 +2227,22 @@ RS::ShaderNativeSourceCode MaterialStorage::shader_get_native_source_code(RID p_
 
 /* MATERIAL API */
 
-void MaterialStorage::_material_uniform_set_erased(void *p_material) {
+void MaterialStorage::_material_uniform_set_erased(void *p_material, int reason) {
 	RID rid = *(RID *)p_material;
 	Material *material = MaterialStorage::get_singleton()->get_material(rid);
 	if (material) {
 		if (material->data) {
 			// Uniform set may be gone because a dependency was erased. This happens
 			// if a texture is deleted, so re-create it.
-			MaterialStorage::get_singleton()->_material_queue_update(material, false, true);
+			MaterialStorage::get_singleton()->_material_queue_update(material, true, true);
 		}
-		material->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_MATERIAL);
+
+		if (!reason) {
+			material->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_MATERIAL);
+		} else {
+			fprintf(stderr, "skip dependency 2\n");
+			material->texture_swap = true;
+		}
 	}
 }
 
@@ -2149,9 +2272,14 @@ void MaterialStorage::_update_queued_materials() {
 
 		material_update_list.remove(&material->update_element);
 
-		if (uniforms_changed) {
+		if (uniforms_changed && !material->texture_swap) {
 			//some implementations such as 3D renderer cache the material uniform set, so update is required
 			material->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_MATERIAL);
+		}
+
+		if (material->texture_swap) {
+			material->derp = false;
+			fprintf(stderr, "skipped dependency change\n");
 		}
 	}
 }
@@ -2459,4 +2587,117 @@ void MaterialStorage::material_set_data_request_function(ShaderType p_shader_typ
 MaterialStorage::MaterialDataRequestFunction MaterialStorage::material_get_data_request_function(ShaderType p_shader_type) {
 	ERR_FAIL_INDEX_V(p_shader_type, SHADER_TYPE_MAX, nullptr);
 	return material_data_request_func[p_shader_type];
+}
+
+void MaterialStorage::_lod_set_resolution(RID p_material, uint64_t p_mono_time, uint32_t p_requested_resolution, uint32_t debug) {
+	Material *material = material_owner.get_or_null(p_material);
+	if (!material) {
+		return;
+	}
+
+	uint32_t y = CLAMP(p_requested_resolution, 1u, 65536u);
+	uint32_t x = 1u << (32ul - __builtin_clz(y));
+
+	if (material->new_requested_resolution != x) {
+		material->new_requested_resolution = CLAMP(material->new_requested_resolution, 32u, 16384u);
+		if (material->new_requested_resolution < 16384 && x > material->new_requested_resolution /*&& ((p_mono_time - material->last_changed_time) > 1000)*/) {
+			material->new_requested_resolution = x;
+			material->last_changed_time = p_mono_time;
+		}
+
+		if (material->new_requested_resolution > 32u && x < material->new_requested_resolution && ((p_mono_time - material->last_changed_time) > 30000)) {
+			material->new_requested_resolution >>= 1;
+			material->last_changed_time = p_mono_time;
+		}
+	}
+
+	material->last_used_time = p_mono_time;
+	if (material->data) {
+		if (!material->active_element.in_list() && !material->data->lod_texture_cache.is_empty()) {
+			active_material_list.add(&material->active_element);
+		}
+
+		for (uint32_t i = 0; i < material->data->lod_texture_cache.size(); i++) {
+			RID tex_rid = material->data->lod_texture_cache[i];
+			RendererRD::TextureStorage::get_singleton()->_texture_request_resolution(tex_rid, material->new_requested_resolution);
+		}
+	}
+}
+
+void MaterialStorage::_lod_process_materials(uint64_t p_mono_time) {
+	SelfList<Material> *E = active_material_list.first();
+	while (E) {
+		SelfList<Material> *N = E->next();
+		Material *material = E->self();
+
+		if (material->task_id != WorkerThreadPool::INVALID_TASK_ID) {
+			if (!WorkerThreadPool::get_singleton()->is_task_completed(material->task_id)) {
+				// fprintf(stderr, "WAIT\n");
+				continue;
+			}
+			// fprintf(stderr, "END\n");
+			material->task_id = WorkerThreadPool::INVALID_TASK_ID;
+			material->textures_to_update.clear();
+			_material_queue_update(material, false, true);
+		}
+
+		const uint64_t time_since_last_use = p_mono_time - material->last_used_time;
+		if (time_since_last_use > 30000) {
+			// fprintf(stderr, "REMOVE %lu\n", material->self.get_id());
+			if (material->new_requested_resolution > 32u) {
+				material->last_used_time = p_mono_time;
+				material->new_requested_resolution >>= 1;
+			} else {
+				active_material_list.remove(E);
+			}
+
+			for (uint32_t i = 0; i < material->data->lod_texture_cache.size(); i++) {
+				RID tex_rid = material->data->lod_texture_cache[i];
+				RendererRD::TextureStorage::get_singleton()->_texture_request_resolution(tex_rid, material->new_requested_resolution);
+			}
+		}
+
+		// uint32_t c = 0;
+		for (uint32_t i = 0; i < material->data->lod_texture_cache.size(); i++) {
+			RID tex_rid = material->data->lod_texture_cache[i];
+			if (RendererRD::TextureStorage::get_singleton()->_texture_request_process(tex_rid, p_mono_time)) {
+				material->textures_to_update.push_back({ tex_rid, RID() });
+				// RendererRD::TextureStorage::get_singleton()->_texture_request_update(tex_rid);
+			}
+		}
+
+		// reload_material(material);
+		// material->data->update_parameters(material->params, false, true);
+
+		if (!material->textures_to_update.is_empty()) {
+			// fprintf(stderr, "START\n");
+			material->task_id = WorkerThreadPool::get_singleton()->add_native_task(&MaterialStorage::reload_material, material, false, "material-lod");
+			// 	RendererRD::TextureStorage::get_singleton()->_texture_request_update(material->textures_to_update[i]);
+			// 	material->textures_to_update.clear();
+			// _material_queue_update(material, true, true);
+		}
+
+		E = N;
+	}
+}
+
+void MaterialStorage::reload_material(void *p_data) {
+	Material *material = reinterpret_cast<Material *>(p_data);
+	if (!material->data) {
+		return;
+	}
+
+	material->derp = true;
+	material->texture_dirty = true;
+	for (uint32_t i = 0; i < material->textures_to_update.size(); i++) {
+		// fprintf(stderr, "PROCESS\n");
+		RendererRD::TextureStorage::get_singleton()->_texture_request_update(material->textures_to_update[i].first);
+	}
+
+	// RenderingServer *rendering_server = RenderingServer::get_singleton();
+	// // RendererRD::MaterialStorage* material_storage = RendererRD::MaterialStorage::get_singleton();
+
+	// RID x = material->self;
+	// RenderingServer::get_singleton()->call_on_render_thread(
+	// 	callable_mp_static(&RendererRD::MaterialStorage::reload_material2).bind(x));
 }

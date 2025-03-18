@@ -122,7 +122,7 @@ class UniformSetCacheRD : public Object {
 	uint32_t cache_instances_used = 0;
 
 	void _invalidate(Cache *p_cache);
-	static void _uniform_set_invalidation_callback(void *p_userdata);
+	static void _uniform_set_invalidation_callback(void *p_userdata, int);
 
 	template <typename Collection>
 	RID _allocate_from_uniforms(RID p_shader, uint32_t p_set, uint32_t p_hash, uint32_t p_table_idx, const Collection &p_uniforms) {

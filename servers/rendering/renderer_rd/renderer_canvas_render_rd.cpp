@@ -1966,8 +1966,8 @@ RendererCanvasRenderRD::RendererCanvasRenderRD() {
 		tf.texture_type = RD::TEXTURE_TYPE_2D;
 		tf.width = 4;
 		tf.height = 4;
-		tf.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT;
-		tf.format = RD::DATA_FORMAT_R32_SFLOAT;
+		tf.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		tf.format = RD::DATA_FORMAT_D32_SFLOAT;
 
 		state.shadow_texture = RD::get_singleton()->texture_create(tf, RD::TextureView());
 	}
@@ -2967,7 +2967,7 @@ void RendererCanvasRenderRD::_before_evict(RendererCanvasRenderRD::RIDSetKey &p_
 	RD::get_singleton()->free(p_rid);
 }
 
-void RendererCanvasRenderRD::_uniform_set_invalidation_callback(void *p_userdata) {
+void RendererCanvasRenderRD::_uniform_set_invalidation_callback(void *p_userdata, int) {
 	const RIDSetKey *key = static_cast<RIDSetKey *>(p_userdata);
 	static_cast<RendererCanvasRenderRD *>(singleton)->rid_set_to_uniform_set.erase(*key);
 }

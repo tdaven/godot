@@ -74,12 +74,52 @@ private:
 	static void _requested_roughness(void *p_ud, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);
 	static void _requested_normal(void *p_ud);
 
+	bool texture_streaming = true;
+	void set_streaming(bool p_enable);
+	bool get_streaming() const;
+	uint32_t _resolution = 16384;
+
+	Ref<Image> texture_reload(uint32_t p_resolution) {
+		ERR_FAIL_COND_V(texture.is_null(), Ref<Image>());
+
+		Ref<Image> image;
+		uint32_t lod = CLAMP(p_resolution, 16u, 16384u);
+		if (_resolution != lod) {
+			_resolution = lod;
+
+			if (path_to_file.is_empty()) {
+				return image;
+			}
+
+			// load(path_to_file);
+			fprintf(stderr, "reload %s %lu %u\n", path_to_file.utf8().get_data(), texture.get_id(), _resolution);
+
+			int lw, lh;
+			bool request_3d_unused;
+			bool request_normal_unused;
+			bool request_roughness_unused;
+			int mipmap_limit_unused;
+			image.instantiate(); // Need a valid image for _load_data
+			_load_data(path_to_file, lw, lh, image, request_3d_unused, request_normal_unused, request_roughness_unused, mipmap_limit_unused);
+		}
+		return image;
+	}
+
+	static Ref<Image> lod_callback(uint32_t p_resolution, void *p_userdata) {
+		CompressedTexture2D *_this = reinterpret_cast<CompressedTexture2D *>(p_userdata);
+		Ref<Image> image;
+		if (_this) {
+			image = _this->texture_reload(p_resolution);
+		}
+		return image;
+	}
+
 protected:
 	static void _bind_methods();
 	void _validate_property(PropertyInfo &p_property) const;
 
 public:
-	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit);
+	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit, uint32_t p_min_lod = 16384);
 
 	typedef void (*TextureFormatRequestCallback)(const Ref<CompressedTexture2D> &);
 	typedef void (*TextureFormatRoughnessRequestCallback)(const Ref<CompressedTexture2D> &, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);

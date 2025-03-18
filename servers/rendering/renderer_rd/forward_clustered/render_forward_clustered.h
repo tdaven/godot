@@ -323,7 +323,8 @@ private:
 			uint32_t layer_mask;
 			float lightmap_uv_scale[4];
 			float compressed_aabb_position[4];
-			float compressed_aabb_size[4];
+			float compressed_aabb_size[3];
+			uint32_t material_feedback_index;
 			float uv_scale[4];
 
 			// These setters allow us to copy the data over with operation when using floats.
@@ -385,8 +386,10 @@ private:
 		RID lightmap_buffer;
 
 		RID instance_buffer[RENDER_LIST_MAX];
-		uint32_t instance_buffer_size[RENDER_LIST_MAX] = { 0, 0, 0 };
+		uint32_t instance_buffer_size[RENDER_LIST_MAX] = { 0, 0, 0, 0 };
 		LocalVector<InstanceData> instance_data[RENDER_LIST_MAX];
+		RID material_feedback_buffer;
+		uint32_t material_feedback_buffer_size = 0;
 
 		LightmapCaptureData *lightmap_captures = nullptr;
 		uint32_t max_lightmap_captures;
@@ -532,7 +535,6 @@ private:
 		GeometryInstanceLightmapSH *lightmap_sh = nullptr;
 
 		//used during rendering
-
 		uint32_t gi_offset_cache = 0;
 		bool store_transform_cache = true;
 		RID transforms_uniform_set;
@@ -541,6 +543,7 @@ private:
 		bool can_sdfgi = false;
 		bool using_projectors = false;
 		bool using_softshadows = false;
+		uint32_t material_index = -1;
 
 		//used during setup
 		uint64_t prev_transform_change_frame = 0xFFFFFFFF;
@@ -688,6 +691,8 @@ private:
 	};
 
 	RenderList render_list[RENDER_LIST_MAX];
+	bool material_feedback_busy = false;
+	LocalVector<RID> material_feedback_map;
 
 	virtual void _update_shader_quality_settings() override;
 
@@ -734,6 +739,9 @@ private:
 
 	/* Debug */
 	void _debug_draw_cluster(Ref<RenderSceneBuffersRD> p_render_buffers);
+
+	static void _material_feedback_callback(PackedByteArray const &array, uint64_t frame);
+	void _material_feedback_callback_real(PackedByteArray const &array);
 
 protected:
 	/* setup */

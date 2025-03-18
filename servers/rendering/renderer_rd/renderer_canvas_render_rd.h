@@ -483,7 +483,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 	};
 
 	static void _before_evict(RendererCanvasRenderRD::RIDSetKey &p_key, RID &p_rid);
-	static void _uniform_set_invalidation_callback(void *p_userdata);
+	static void _uniform_set_invalidation_callback(void *p_userdata, int);
 	static void _canvas_texture_invalidation_callback(bool p_deleted, void *p_userdata);
 
 	typedef LRUCache<RIDSetKey, RID, HashableHasher<RIDSetKey>, HashMapComparatorDefault<RIDSetKey>, _before_evict> RIDCache;

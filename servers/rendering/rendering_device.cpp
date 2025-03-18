@@ -1707,6 +1707,68 @@ Error RenderingDevice::texture_update(RID p_texture, uint32_t p_layer, const Vec
 	return OK;
 }
 
+// Error RenderingDevice::_texture_replace(RID p_texture, RID p_by_texture) {
+// 	ERR_RENDER_THREAD_GUARD_V(ERR_UNAVAILABLE);
+// 	// ERR_FAIL_COND_V_MSG(draw_list || compute_list, ERR_INVALID_PARAMETER, "Updating textures is forbidden during creation of a draw or compute list");
+
+// 	// Texture *texture = texture_owner.get_or_null(p_texture);
+// 	// ERR_FAIL_NULL_V(texture, ERR_INVALID_PARAMETER);
+
+// 	// Texture *by_texture = texture_owner.get_or_null(p_by_texture);
+// 	// if (!by_texture) {
+// 	// 	ERR_FAIL_NULL_V(by_texture, ERR_INVALID_PARAMETER);
+// 	// }
+
+// 	// if (texture->owner != RID()) {
+// 	// 	p_texture = texture->owner;
+// 	// 	texture = texture_owner.get_or_null(texture->owner);
+// 	// 	if (!texture) {
+// 	// 		texture->height = 1;
+// 	// 		ERR_FAIL_NULL_V(texture, ERR_BUG); // This is a bug.
+// 	// 	}
+// 	// }
+
+// 	// ERR_FAIL_COND_V_MSG(texture->bound, ERR_CANT_ACQUIRE_RESOURCE,
+// 	// 		"Texture can't be updated while a draw list that uses it as part of a framebuffer is being created. Ensure the draw list is finalized (and that the color/depth texture using it is not set to `RenderingDevice.FINAL_ACTION_CONTINUE`) to update this texture.");
+
+// 	// ERR_FAIL_COND_V_MSG(!(texture->usage_flags & TEXTURE_USAGE_CAN_UPDATE_BIT), ERR_INVALID_PARAMETER, "Texture requires the `RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT` to be set to be updatable.");
+
+// 	// SWAP(texture->driver_id, by_texture->driver_id);
+// 	// SWAP(texture->type, by_texture->type);
+// 	// SWAP(texture->format, by_texture->format);
+// 	// SWAP(texture->samples, by_texture->samples);
+// 	// SWAP(texture->slice_type, by_texture->slice_type);
+// 	// SWAP(texture->slice_rect, by_texture->slice_rect);
+// 	// SWAP(texture->width, by_texture->width);
+// 	// SWAP(texture->height, by_texture->height);
+// 	// SWAP(texture->depth, by_texture->depth);
+// 	// SWAP(texture->layers, by_texture->layers);
+// 	// SWAP(texture->mipmaps, by_texture->mipmaps);
+// 	// SWAP(texture->usage_flags, by_texture->usage_flags);
+// 	// SWAP(texture->base_mipmap, by_texture->base_mipmap);
+// 	// SWAP(texture->base_layer, by_texture->base_layer);
+
+// 	// SWAP(texture->is_resolve_buffer, by_texture->is_resolve_buffer);
+// 	// SWAP(texture->is_discardable, by_texture->is_discardable);
+// 	// SWAP(texture->usage_flags, by_texture->usage_flags);
+// 	// SWAP(texture->samples, by_texture->samples);
+// 	// SWAP(texture->allowed_shared_formats, by_texture->allowed_shared_formats);
+// 	// SWAP(texture->has_initial_data, by_texture->has_initial_data);
+// 	// SWAP(texture->owner, by_texture->owner);
+
+// 	// // Free up the old texture....
+// 	// // free(p_by_texture);
+// 	// // _free_internal(by_texture);
+
+// 	// // Set the RID to use the new texture.
+// 	// // texture_owner.initialize_rid(p_texture, *by_texture);
+
+// 	// // Free up the old RID for the by texture.
+// 	// // texture_owner.free(p_by_texture);
+
+// 	return OK;
+// }
+
 void RenderingDevice::_texture_check_shared_fallback(Texture *p_texture) {
 	if (p_texture->shared_fallback == nullptr) {
 		p_texture->shared_fallback = memnew(Texture::SharedFallback);
@@ -6022,6 +6084,28 @@ void RenderingDevice::free(RID p_id) {
 	_free_internal(p_id);
 }
 
+void RenderingDevice::_free_internal(Texture *texture) {
+	_check_transfer_worker_texture(texture);
+
+	RDG::ResourceTracker *draw_tracker = texture->draw_tracker;
+	if (draw_tracker != nullptr) {
+		draw_tracker->reference_count--;
+		if (draw_tracker->reference_count == 0) {
+			RDG::resource_tracker_free(draw_tracker);
+
+			if (texture->owner.is_valid() && (texture->slice_type != TEXTURE_SLICE_MAX)) {
+				// If this was a texture slice, erase the tracker from the map.
+				Texture *owner_texture = texture_owner.get_or_null(texture->owner);
+				if (owner_texture != nullptr) {
+					owner_texture->slice_trackers.erase(texture->slice_rect);
+				}
+			}
+		}
+	}
+
+	frames[frame].textures_to_dispose_of.push_back(*texture);
+}
+
 void RenderingDevice::_free_internal(RID p_id) {
 #ifdef DEV_ENABLED
 	String resource_name;
@@ -6030,36 +6114,17 @@ void RenderingDevice::_free_internal(RID p_id) {
 		resource_names.erase(p_id);
 	}
 #endif
-
 	// Push everything so it's disposed of next time this frame index is processed (means, it's safe to do it).
 	if (texture_owner.owns(p_id)) {
 		Texture *texture = texture_owner.get_or_null(p_id);
-		_check_transfer_worker_texture(texture);
-
-		RDG::ResourceTracker *draw_tracker = texture->draw_tracker;
-		if (draw_tracker != nullptr) {
-			draw_tracker->reference_count--;
-			if (draw_tracker->reference_count == 0) {
-				RDG::resource_tracker_free(draw_tracker);
-
-				if (texture->owner.is_valid() && (texture->slice_type != TEXTURE_SLICE_MAX)) {
-					// If this was a texture slice, erase the tracker from the map.
-					Texture *owner_texture = texture_owner.get_or_null(texture->owner);
-					if (owner_texture != nullptr) {
-						owner_texture->slice_trackers.erase(texture->slice_rect);
-					}
-				}
-			}
-		}
-
-		frames[frame].textures_to_dispose_of.push_back(*texture);
+		_free_internal(texture);
 		texture_owner.free(p_id);
 	} else if (framebuffer_owner.owns(p_id)) {
 		Framebuffer *framebuffer = framebuffer_owner.get_or_null(p_id);
 		frames[frame].framebuffers_to_dispose_of.push_back(*framebuffer);
 
 		if (framebuffer->invalidated_callback != nullptr) {
-			framebuffer->invalidated_callback(framebuffer->invalidated_callback_userdata);
+			framebuffer->invalidated_callback(framebuffer->invalidated_callback_userdata, 0);
 		}
 
 		framebuffer_owner.free(p_id);
@@ -6118,7 +6183,7 @@ void RenderingDevice::_free_internal(RID p_id) {
 		uniform_set_owner.free(p_id);
 
 		if (uniform_set->invalidated_callback != nullptr) {
-			uniform_set->invalidated_callback(uniform_set->invalidated_callback_userdata);
+			uniform_set->invalidated_callback(uniform_set->invalidated_callback_userdata, 0);
 		}
 	} else if (render_pipeline_owner.owns(p_id)) {
 		RenderPipeline *pipeline = render_pipeline_owner.get_or_null(p_id);

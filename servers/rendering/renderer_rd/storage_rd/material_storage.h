@@ -100,7 +100,28 @@ public:
 
 		//to be used internally by update_parameters, in the most common configuration of material parameters
 		bool update_parameters_uniform_set(const HashMap<StringName, Variant> &p_parameters, bool p_uniform_dirty, bool p_textures_dirty, const HashMap<StringName, ShaderLanguage::ShaderNode::Uniform> &p_uniforms, const uint32_t *p_uniform_offsets, const Vector<ShaderCompiler::GeneratedCode::Texture> &p_texture_uniforms, const HashMap<StringName, HashMap<int, RID>> &p_default_texture_params, uint32_t p_ubo_size, RID &r_uniform_set, RID p_shader, uint32_t p_shader_uniform_set, bool p_use_linear_color, bool p_3d_material);
+		bool update_parameters_uniform_set2(
+				const HashMap<StringName, Variant> &p_parameters,
+				// bool p_uniform_dirty,
+				bool p_textures_dirty,
+				// const HashMap<StringName, ShaderLanguage::ShaderNode::Uniform> &p_uniforms,
+				// const uint32_t *p_uniform_offsets,
+				const Vector<ShaderCompiler::GeneratedCode::Texture> &p_texture_uniforms,
+				const HashMap<StringName, HashMap<int, RID>> &p_default_texture_params,
+				// uint32_t p_ubo_size,
+				// RID &r_uniform_set,
+				// RID p_shader,
+				// uint32_t p_shader_uniform_set,
+				bool p_use_linear_color,
+				bool p_3d_material);
 		void free_parameters_uniform_set(RID p_uniform_set);
+
+		RID get_rid() {
+			return self;
+		}
+		Vector<RID> lod_texture_cache;
+		uint64_t lod_ticks;
+		uint32_t lod_index;
 
 	private:
 		friend class MaterialStorage;
@@ -241,6 +262,7 @@ private:
 		uint32_t shader_id = 0;
 		bool uniform_dirty = false;
 		bool texture_dirty = false;
+		bool texture_swap = false;
 		HashMap<StringName, Variant> params;
 		int32_t priority = 0;
 		RID next_pass;
@@ -248,9 +270,27 @@ private:
 
 		Dependency dependency;
 
+		uint32_t requested_resolution = 1;
+		uint32_t new_requested_resolution = 0;
+		uint64_t last_used_time = 0;
+		uint64_t last_changed_time = 0;
+		SelfList<Material> active_element;
+		LocalVector<Pair<RID, RID>> textures_to_update;
+		WorkerThreadPool::GroupID task_id = WorkerThreadPool::INVALID_TASK_ID;
+		bool derp = false;
+
 		Material() :
-				update_element(this) {}
+				update_element(this),
+				active_element(this) {}
 	};
+
+	Mutex active_material_list_mutex;
+	SelfList<Material>::List active_material_list;
+	LocalVector<RID> textures_to_update;
+	WorkerThreadPool::GroupID task_id = WorkerThreadPool::INVALID_TASK_ID;
+	static void reload_material(void *p_data, uint32_t p_index);
+
+	static void reload_material(void *p_data);
 
 	MaterialDataRequestFunction material_data_request_func[SHADER_TYPE_MAX];
 	mutable RID_Owner<Material, true> material_owner;
@@ -259,7 +299,7 @@ private:
 	SelfList<Material>::List material_update_list;
 	Mutex material_update_list_mutex;
 
-	static void _material_uniform_set_erased(void *p_material);
+	static void _material_uniform_set_erased(void *p_material, int);
 
 public:
 	static MaterialStorage *get_singleton();
@@ -427,6 +467,12 @@ public:
 
 	void _material_queue_update(Material *material, bool p_uniform, bool p_texture);
 	void _update_queued_materials();
+
+	void _lod_set_resolution(RID p_material, uint64_t p_mono_time, uint32_t p_requested_resolution, uint32_t debug);
+	void _lod_process_materials(uint64_t p_mono_time);
+	// void _lod_request_resolution(Material *material);
+	// // void _lod_request_process(Material *material);
+	// void _lod_request_process();
 
 	virtual RID material_allocate() override;
 	virtual void material_initialize(RID p_material) override;

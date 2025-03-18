@@ -152,7 +152,7 @@ class FramebufferCacheRD : public Object {
 	uint32_t cache_instances_used = 0;
 
 	void _invalidate(Cache *p_cache);
-	static void _framebuffer_invalidation_callback(void *p_userdata);
+	static void _framebuffer_invalidation_callback(void *p_userdata, int);
 
 	RID _allocate_from_data(uint32_t p_views, uint32_t p_hash, uint32_t p_table_idx, const Vector<RID> &p_textures, const Vector<RD::FramebufferPass> &p_passes) {
 		RID rid;

@@ -489,6 +489,28 @@ bool SceneShaderForwardClustered::MaterialData::update_parameters(const HashMap<
 	}
 }
 
+bool SceneShaderForwardClustered::MaterialData::update_parameters2(const HashMap<StringName, Variant> &p_parameters, bool p_uniform_dirty, bool p_textures_dirty) {
+	if (shader_data->version.is_valid()) {
+		MutexLock lock(SceneShaderForwardClustered::singleton_mutex);
+		return update_parameters_uniform_set2(
+				p_parameters,
+				// p_uniform_dirty,
+				p_textures_dirty,
+				// shader_data->uniforms,
+				// shader_data->ubo_offsets.ptr(),
+				shader_data->texture_uniforms,
+				shader_data->default_texture_params,
+				// shader_data->ubo_size,
+				// uniform_set,
+				// SceneShaderForwardClustered::singleton->shader.version_get_shader(shader_data->version, 0),
+				// RenderForwardClustered::MATERIAL_UNIFORM_SET,
+				true,
+				true);
+	} else {
+		return false;
+	}
+}
+
 SceneShaderForwardClustered::MaterialData::~MaterialData() {
 	free_parameters_uniform_set(uniform_set);
 }
@@ -512,6 +534,7 @@ SceneShaderForwardClustered::~SceneShaderForwardClustered() {
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 
 	RD::get_singleton()->free(default_vec4_xform_buffer);
+	RD::get_singleton()->free(default_material_feedback_buffer);
 	RD::get_singleton()->free(shadow_sampler);
 
 	material_storage->shader_free(overdraw_material_shader);
@@ -860,6 +883,7 @@ void fragment() {
 
 	{
 		default_vec4_xform_buffer = RD::get_singleton()->storage_buffer_create(256);
+		default_material_feedback_buffer = RD::get_singleton()->storage_buffer_create(256);
 		Vector<RD::Uniform> uniforms;
 		RD::Uniform u;
 		u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;

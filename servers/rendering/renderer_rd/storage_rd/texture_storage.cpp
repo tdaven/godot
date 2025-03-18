@@ -29,12 +29,13 @@
 /**************************************************************************/
 
 #include "texture_storage.h"
-
 #include "../effects/copy_effects.h"
 #include "../framebuffer_cache_rd.h"
+#include "core/config/project_settings.h"
 #include "material_storage.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 
+#include "core/object/worker_thread_pool.h"
 using namespace RendererRD;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -548,6 +549,12 @@ TextureStorage::TextureStorage() {
 		// Alternate checkerboard pattern on odd layers (by using a copy that is rotated 90 degrees).
 		texture_3d_placeholder.push_back(i % 2 == 0 ? texture_2d_placeholder : texture_2d_placeholder_rotated);
 	}
+
+	texture_max_resolution_setting = 32 << (uint32_t(GLOBAL_GET("rendering/textures/streaming/max_dimension")));
+	texture_max_resolution = texture_max_resolution_setting;
+	fprintf(stderr, "texture_max_resolution=%u\n", texture_max_resolution_setting);
+
+	texture_set_streaming_enabled(GLOBAL_GET("rendering/textures/streaming/enabled"));
 }
 
 TextureStorage::~TextureStorage() {
@@ -1542,7 +1549,9 @@ Vector<Ref<Image>> TextureStorage::texture_3d_get(RID p_texture) const {
 
 void TextureStorage::texture_replace(RID p_texture, RID p_by_texture) {
 	Texture *tex = texture_owner.get_or_null(p_texture);
-	ERR_FAIL_NULL(tex);
+	if (tex == nullptr) {
+		ERR_FAIL_NULL(tex);
+	}
 	ERR_FAIL_COND(tex->proxy_to.is_valid()); //can't replace proxy
 	Texture *by_tex = texture_owner.get_or_null(p_by_texture);
 	ERR_FAIL_NULL(by_tex);
@@ -4287,4 +4296,156 @@ uint32_t TextureStorage::render_target_get_color_usage_bits(bool p_msaa) {
 		// FIXME: Storage bit should only be requested when FSR is required.
 		return RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
 	}
+}
+
+void TextureStorage::_texture_request_resolution(RID tex_rid, uint32_t requested_resolution) {
+	Texture *tex = texture_owner.get_or_null(tex_rid);
+	ERR_FAIL_NULL(tex);
+
+	if (requested_resolution > tex->new_requested_resolution || requested_resolution == 0) {
+		tex->new_requested_resolution = requested_resolution;
+	}
+}
+
+bool TextureStorage::_texture_request_process(RID tex_rid, uint64_t tick) {
+	Texture *tex = texture_owner.get_or_null(tex_rid);
+	ERR_FAIL_NULL_V(tex, false);
+	bool retval = false;
+	if (tex->new_requested_resolution > 0) {
+		tex->new_requested_resolution = CLAMP(tex->new_requested_resolution, texture_min_resolution, texture_max_resolution);
+
+		if (tex->requested_resolution != tex->new_requested_resolution) {
+			tex->requested_resolution = tex->new_requested_resolution;
+
+			if (tex->lod_queued_tick != tick) {
+				tex->lod_queued_tick = tick;
+				retval = true;
+			}
+		}
+	}
+
+	tex->new_requested_resolution = 0;
+
+	return retval;
+}
+
+// void TextureStorage::_texture_replace_internal(RID p_texture, RID p_by_texture) {
+// 	Texture *tex = TextureStorage::get_singleton()->texture_owner.get_or_null(p_texture);
+// 	ERR_FAIL_NULL(tex);
+// 	Texture *by_tex = TextureStorage::get_singleton()->texture_owner.get_or_null(p_by_texture);
+// 	ERR_FAIL_NULL(by_tex);
+
+// 	if (tex == by_tex) {
+// 		return;
+// 	}
+
+// 	// RS::get_singleton()->_texture_replace_internal(tex_rid, new_texture);
+// 	// RendererRD::TextureStorage::get_singleton()->_texture_replace_internal(tex_rid, new_texture);
+
+// 	// *tex = *by_tex;
+// 	// tex->lod_callback = x;
+// 	// tex->lod_callback_ud = y;
+
+// 	// // //delete last, so proxies can be updated
+// 	// // TextureStorage::get_singleton()->texture_owner.free(p_by_texture);
+// 	// // Texture *tex = texture_owner.get_or_null(p_texture);
+// 	// // ERR_FAIL_NULL(tex);
+
+// 	RD::get_singleton()->_texture_replace(tex->rd_texture, by_tex->rd_texture);
+// 	RD::get_singleton()->_free_internal(by_tex->rd_texture);
+// 	if (tex->rd_texture_srgb.is_valid()) {
+// 		RD::get_singleton()->_texture_replace(tex->rd_texture_srgb, by_tex->rd_texture_srgb);
+// 		RD::get_singleton()->_free_internal(by_tex->rd_texture_srgb);
+// 	}
+
+// 	// //delete last, so proxies can be updated
+// 	// RD::get_singleton()->free(tex->rd_texture)
+
+// 	TextureStorage::get_singleton()->free(p_by_texture);
+// }
+
+void TextureStorage::_texture_request_update(RID tex_rid) {
+	Texture *tex = texture_owner.get_or_null(tex_rid);
+	ERR_FAIL_NULL(tex);
+
+	if (tex->type != TextureStorage::TYPE_2D) {
+		fprintf(stderr, "SKIP\n");
+	}
+
+	if (tex && tex->lod_callback) {
+		Ref<Image> image = tex->lod_callback(tex->requested_resolution, tex->lod_callback_ud);
+		if (image.is_valid()) {
+			RID new_texture = RS::get_singleton()->texture_2d_create(image);
+			auto x = tex->lod_callback;
+			auto y = tex->lod_callback_ud;
+
+			RS::get_singleton()->texture_replace(tex_rid, new_texture);
+			RS::get_singleton()->texture_set_lod_callback(tex_rid, x, y);
+			// RendererRD::TextureStorage::get_singleton()->_texture_replace_internal(tex_rid, new_texture);
+
+			// RenderingServer::get_singleton()->call_on_render_thread(
+			// 	callable_mp_static(
+			// 		&RendererRD::TextureStorage::_texture_replace_internal).bind(tex_rid, new_texture));
+			// // Texture *by_tex = texture_owner.get_or_null(new_texture);
+			// // ERR_FAIL_NULL(by_tex);
+
+			// RD::get_singleton()->_texture_replace(tex->rd_texture, by_tex->rd_texture);
+			// if (tex->rd_texture_srgb.is_valid()) {
+			// 	RD::get_singleton()->_texture_replace(tex->rd_texture_srgb, by_tex->rd_texture_srgb);
+			// }
+
+			// //delete last, so proxies can be updated
+			// RD::get_singleton()->free()
+			// 		texture_owner.free(new_texture);
+		}
+	}
+}
+
+void TextureStorage::texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	ERR_FAIL_NULL(tex);
+	tex->lod_callback = p_callback;
+	tex->lod_callback_ud = p_userdata;
+}
+
+void TextureStorage::texture_set_streaming_enabled(bool streaming) {
+	List<RID> textures;
+	texture_owner.get_owned_list(&textures);
+
+	// texture_streaming = streaming;
+	fprintf(stderr, "streaming = %i\n", streaming);
+	if (streaming) {
+		texture_min_resolution = 32u;
+		texture_max_resolution = texture_max_resolution_setting;
+	} else {
+		texture_min_resolution = 16384u;
+		texture_max_resolution = 16384u;
+	}
+
+	for (List<RID>::Element *E = textures.front(); E; E = E->next()) {
+		Texture *tex = texture_owner.get_or_null(E->get());
+		if (!tex) {
+			continue;
+		}
+		if (tex->requested_resolution < texture_min_resolution) {
+			tex->requested_resolution = texture_min_resolution;
+			tex->new_requested_resolution = 0;
+			tex->lod_queued_tick = 0;
+			if (tex && tex->lod_callback) {
+				Ref<Image> image = tex->lod_callback(tex->requested_resolution, tex->lod_callback_ud);
+				if (image.is_valid()) {
+					RID new_texture = RS::get_singleton()->texture_2d_create(image);
+					auto x = tex->lod_callback;
+					auto y = tex->lod_callback_ud;
+					RS::get_singleton()->texture_replace(E->get(), new_texture);
+					RS::get_singleton()->texture_set_lod_callback(E->get(), x, y);
+				}
+			}
+		}
+	}
+}
+
+void TextureStorage::texture_set_streaming_max_resolution(uint32_t max) {
+	texture_max_resolution_setting = CLAMP(max, 32u, 16384u);
+	texture_max_resolution = texture_max_resolution_setting;
 }

@@ -190,6 +190,13 @@ private:
 		RS::TextureDetectRoughnessCallback detect_roughness_callback = nullptr;
 		void *detect_roughness_callback_ud = nullptr;
 
+		uint32_t new_requested_resolution = 0;
+		uint32_t requested_resolution = 0;
+		uint64_t lod_queued_tick = 0;
+		RS::TextureLodCallback lod_callback = nullptr;
+		void *lod_callback_ud = nullptr;
+		bool streaming_enabled = true;
+
 		CanvasTexture *canvas_texture = nullptr;
 
 		void cleanup();
@@ -198,6 +205,16 @@ private:
 	// Textures can be created from threads, so this RID_Owner is thread safe.
 	mutable RID_Owner<Texture, true> texture_owner;
 	Texture *get_texture(RID p_rid) { return texture_owner.get_or_null(p_rid); }
+
+	virtual void texture_set_lod_callback(RID p_texture, RS::TextureLodCallback p_callback, void *p_userdata) override;
+	virtual void texture_set_streaming_enabled(bool streaming) override;
+	virtual void texture_set_streaming_max_resolution(uint32_t max) override;
+	void _texture_request_resolution(RID tex_rid, uint32_t requested_resolution);
+	bool _texture_request_process(RID tex_rid, uint64_t tick);
+	void _texture_request_update(RID tex_rid);
+	uint32_t texture_max_resolution_setting = 16384u;
+	uint32_t texture_max_resolution = 16384u;
+	uint32_t texture_min_resolution = 32u;
 
 	struct TextureToRDFormat {
 		RD::DataFormat format;
@@ -539,6 +556,8 @@ public:
 	virtual Ref<Image> texture_2d_layer_get(RID p_texture, int p_layer) const override;
 	virtual Vector<Ref<Image>> texture_3d_get(RID p_texture) const override;
 
+	// static void _texture_replace_internal(RID p_texture, RID p_by_texture);
+	// static void _texture_replace_internal(RID p_texture, RID p_by_texture);
 	virtual void texture_replace(RID p_texture, RID p_by_texture) override;
 	virtual void texture_set_size_override(RID p_texture, int p_width, int p_height) override;
 

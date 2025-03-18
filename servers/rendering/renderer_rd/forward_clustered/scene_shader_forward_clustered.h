@@ -305,6 +305,7 @@ public:
 		virtual void set_render_priority(int p_priority);
 		virtual void set_next_pass(RID p_pass);
 		virtual bool update_parameters(const HashMap<StringName, Variant> &p_parameters, bool p_uniform_dirty, bool p_textures_dirty);
+		virtual bool update_parameters2(const HashMap<StringName, Variant> &p_parameters, bool p_uniform_dirty, bool p_textures_dirty);
 		virtual ~MaterialData();
 	};
 
@@ -327,6 +328,8 @@ public:
 
 	RID default_vec4_xform_buffer;
 	RID default_vec4_xform_uniform_set;
+
+	RID default_material_feedback_buffer;
 
 	RID shadow_sampler;
 
