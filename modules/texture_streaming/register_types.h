@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  register_types.cpp                                                    */
+/*  register_types.h                                                      */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,28 +28,10 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "core/io/image_loader.h"
+#pragma once
+
 #include "modules/register_module_types.h"
 
-#include "register_types.h"
-#include "texture_loader_dds.h"
-
-static Ref<ImageLoaderDDS> image_loader_dds;
-
-void initialize_dds_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
-		return;
-	}
-
-	image_loader_dds.instantiate();
-	ImageLoader::add_image_format_loader(image_loader_dds);
-}
-
-void uninitialize_dds_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
-		return;
-	}
-
-	ImageLoader::remove_image_format_loader(image_loader_dds);
-	image_loader_dds.unref();
-}
+void initialize_texture_streaming_module(ModuleInitializationLevel p_level);
+void uninitialize_texture_streaming_module(ModuleInitializationLevel p_level);
+/* yes, the word in the middle must be the same as the module folder name */

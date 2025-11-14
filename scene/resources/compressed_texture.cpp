@@ -28,17 +28,20 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "compressed_texture.h"
-
+#include "core/config/project_settings.h"
+#include "core/error/error_macros.h"
+#include "core/io/file_access.h"
 #include "scene/resources/bit_map.h"
 
-Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r_height, Ref<Image> &image, bool &r_request_3d, bool &r_request_normal, bool &r_request_roughness, int &mipmap_limit, int p_size_limit) {
-	alpha_cache.unref();
+#include "compressed_texture.h"
+#include "modules/texture_streaming/texture_streaming.h"
 
+Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r_height, Ref<Image> &image, bool &r_request_3d, bool &r_request_normal, bool &r_request_roughness, int &mipmap_limit, int p_size_limit, int p_max_mip_resolution, uint32_t &streaming_settings) {
 	ERR_FAIL_COND_V(image.is_null(), ERR_INVALID_PARAMETER);
 
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(f.is_null(), ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
+	// fprintf(stderr, "Loading texture to ctex format: %s\n", p_path.utf8().get_data());
 
 	uint8_t header[4];
 	f->get_buffer(header, 4);
@@ -55,10 +58,12 @@ Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r
 	r_height = f->get_32();
 	uint32_t df = f->get_32(); //data format
 
-	//skip reserved
+	//skip unimplemented feature
 	mipmap_limit = int(f->get_32());
+
+	streaming_settings = f->get_32(); //streaming settings
+
 	//reserved
-	f->get_32();
 	f->get_32();
 	f->get_32();
 
@@ -79,7 +84,7 @@ Error CompressedTexture2D::_load_data(const String &p_path, int &r_width, int &r
 		p_size_limit = 0;
 	}
 
-	image = load_image_from_file(f, p_size_limit);
+	image = load_image_from_file(f, p_size_limit, p_max_mip_resolution);
 
 	if (image.is_null() || image->is_empty()) {
 		return ERR_CANT_OPEN;
@@ -101,6 +106,7 @@ void CompressedTexture2D::_requested_3d(void *p_ud) {
 	Ref<CompressedTexture2D> ctex(ct);
 	ERR_FAIL_NULL(request_3d_callback);
 	request_3d_callback(ctex);
+	fprintf(stderr, "Requested detect 3D for texture: %s\n", ctex->get_path().utf8().get_data());
 }
 
 void CompressedTexture2D::_requested_roughness(void *p_ud, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel) {
@@ -134,18 +140,22 @@ Error CompressedTexture2D::load(const String &p_path) {
 	bool request_normal;
 	bool request_roughness;
 	int mipmap_limit;
+	uint32_t streaming_settings_unused;
 
-	Error err = _load_data(p_path, lw, lh, image, request_3d, request_normal, request_roughness, mipmap_limit);
+	alpha_cache.unref();
+	Error err = _load_data(p_path, lw, lh, image, request_3d, request_normal, request_roughness, mipmap_limit, 0, 0, streaming_settings_unused);
 	if (err) {
 		return err;
 	}
 
+	RID new_texture = RS::get_singleton()->texture_2d_create(image);
+	RenderingServer::get_singleton()->texture_set_path(new_texture, p_path);
 	if (texture.is_valid()) {
-		RID new_texture = RS::get_singleton()->texture_2d_create(image);
 		RS::get_singleton()->texture_replace(texture, new_texture);
 	} else {
-		texture = RS::get_singleton()->texture_2d_create(image);
+		texture = new_texture;
 	}
+
 	if (lw || lh) {
 		RS::get_singleton()->texture_set_size_override(texture, lw, lh);
 	}
@@ -164,8 +174,9 @@ Error CompressedTexture2D::load(const String &p_path) {
 
 	if (request_3d) {
 		//print_line("request detect 3D at " + p_path);
-		RS::get_singleton()->texture_set_detect_3d_callback(texture, _requested_3d, this);
 	} else {
+		RS::get_singleton()->texture_set_detect_3d_callback(texture, _requested_3d, this);
+
 		//print_line("not requesting detect 3D at " + p_path);
 		RS::get_singleton()->texture_set_detect_3d_callback(texture, nullptr, nullptr);
 	}
@@ -293,7 +304,7 @@ void CompressedTexture2D::reload_from_file() {
 	load(path);
 }
 
-Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_size_limit) {
+Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_size_limit, int p_max_resolution) {
 	uint32_t data_format = f->get_32();
 	uint32_t w = f->get_16();
 	uint32_t h = f->get_16();
@@ -418,30 +429,29 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 		sh = MAX(sh >> 1, 1);
 		return img;
 	} else if (data_format == DATA_FORMAT_IMAGE) {
+		// fprintf(stderr, "Loading image data directly... p_max_resolution: %d\n", p_max_resolution);
 		int size = Image::get_image_data_size(w, h, format, mipmaps ? true : false);
-
 		for (uint32_t i = 0; i < mipmaps + 1; i++) {
 			int tw, th;
 			int ofs = Image::get_image_mipmap_offset_and_dimensions(w, h, format, i, tw, th);
 
-			if (p_size_limit > 0 && i < mipmaps && (p_size_limit > tw || p_size_limit > th)) {
-				if (ofs) {
-					f->seek(f->get_position() + ofs);
-				}
+			if (p_size_limit > 0 && i < mipmaps && (p_size_limit < MAX(tw, th))) {
 				continue; //oops, size limit enforced, go to next
 			}
 
-			Vector<uint8_t> data;
-			data.resize(size - ofs);
-
-			{
-				uint8_t *wr = data.ptrw();
-				f->get_buffer(wr, data.size());
+			// For the case of mip-level streaming we only care about limiting the max size
+			// If either width or height is larger than the max size, skip this mip level.
+			if (p_max_resolution > 0 && i < mipmaps && (p_max_resolution < MAX(tw, th))) {
+				continue;
 			}
 
-			Ref<Image> image = Image::create_from_data(tw, th, mipmaps - i ? true : false, format, data);
+			f->seek(f->get_position() + ofs);
 
-			return image;
+			Vector<uint8_t> data;
+			data.resize(size - ofs);
+			f->get_buffer(data.ptrw(), data.size());
+
+			return Image::create_from_data(tw, th, mipmaps - i ? true : false, format, data);
 		}
 	}
 
@@ -487,6 +497,227 @@ bool ResourceFormatLoaderCompressedTexture2D::handles_type(const String &p_type)
 String ResourceFormatLoaderCompressedTexture2D::get_resource_type(const String &p_path) const {
 	if (p_path.get_extension().to_lower() == "ctex") {
 		return "CompressedTexture2D";
+	}
+	return "";
+}
+
+void StreamedTexture2D::texture_reload(uint32_t p_resolution) {
+	ERR_FAIL_COND(texture.is_null());
+	ERR_FAIL_COND(path_to_file.is_empty());
+	// return;
+
+	if (_current_resolution == p_resolution) {
+		// fprintf(stderr, "Skipping reload texture %s %lu at resolution %u\n", path_to_file.utf8().get_data(), texture.get_id(), _resolution);
+		return;
+	}
+
+	_current_resolution = p_resolution;
+
+	// fprintf(stderr, "Reloading texture %s %lu at resolution %u\n", path_to_file.utf8().get_data(), texture.get_id(), _resolution);
+
+	_load_internal(path_to_file, false);
+}
+
+Error StreamedTexture2D::_load_internal(const String &p_path, bool p_load_settings) {
+	int lw, lh;
+	Ref<Image> image;
+	image.instantiate();
+
+	const bool streaming_enabled = GLOBAL_GET("rendering/textures/streaming/enabled");
+	const String rendering_method = OS::get_singleton()->get_current_rendering_method();
+	const bool use_streaming = streaming_enabled && rendering_method != "gl_compatibility";
+	if (!use_streaming) {
+		_current_resolution = 0; // force full resolution
+	}
+
+	bool request_3d;
+	bool request_normal;
+	bool request_roughness;
+	int mipmap_limit;
+	uint32_t streaming_settings = 0;
+
+	alpha_cache.unref();
+	Error err = _load_data(p_path, lw, lh, image, request_3d, request_normal, request_roughness, mipmap_limit, 0, _current_resolution, streaming_settings);
+	ERR_FAIL_COND_V(err != OK, err);
+
+	RID new_texture = RS::get_singleton()->texture_2d_create(image);
+	RenderingServer::get_singleton()->texture_set_path(new_texture, p_path);
+	if (texture.is_valid()) {
+		RS::get_singleton()->texture_replace(texture, new_texture);
+	} else {
+		texture = new_texture;
+	}
+
+	if (lw || lh) {
+		RS::get_singleton()->texture_set_size_override(texture, lw, lh);
+	}
+
+	w = lw;
+	h = lh;
+	path_to_file = p_path;
+	format = image->get_format();
+
+	if (use_streaming) {
+		if (p_load_settings) {
+			mipmap_streaming_min = (streaming_settings) & 0xFF;
+			mipmap_streaming_max = (streaming_settings >> 8) & 0xFF;
+		}
+		const uint32_t streaming_min = mipmap_streaming_min > 0 ? 1 << (mipmap_streaming_min - 1) : 0;
+		const uint32_t streaming_max = mipmap_streaming_max > 0 ? 1 << (mipmap_streaming_max - 1) : 0;
+
+		if (streaming_state.is_null()) {
+			streaming_state = TextureStreaming::get_singleton()->texture_configure_streaming(
+					texture,
+					RS::get_singleton()->texture_get_format(texture),
+					w,
+					h,
+					streaming_min,
+					streaming_max,
+					callable_mp(this, &StreamedTexture2D::texture_reload));
+
+			RS::get_singleton()->texture_2d_attach_streaming_state(texture, streaming_state);
+		}
+	}
+
+	if (p_load_settings) {
+#ifdef TOOLS_ENABLED
+
+		if (request_3d) {
+			//print_line("request detect 3D at " + p_path);
+			RS::get_singleton()->texture_set_detect_3d_callback(texture, _requested_3d, this);
+		} else {
+			//print_line("not requesting detect 3D at " + p_path);
+			RS::get_singleton()->texture_set_detect_3d_callback(texture, nullptr, nullptr);
+		}
+
+		if (request_roughness) {
+			//print_line("request detect srgb at " + p_path);
+			RS::get_singleton()->texture_set_detect_roughness_callback(texture, _requested_roughness, this);
+		} else {
+			//print_line("not requesting detect srgb at " + p_path);
+			RS::get_singleton()->texture_set_detect_roughness_callback(texture, nullptr, nullptr);
+		}
+
+		if (request_normal) {
+			//print_line("request detect srgb at " + p_path);
+			RS::get_singleton()->texture_set_detect_normal_callback(texture, _requested_normal, this);
+		} else {
+			//print_line("not requesting detect normal at " + p_path);
+			RS::get_singleton()->texture_set_detect_normal_callback(texture, nullptr, nullptr);
+		}
+#endif
+
+		notify_property_list_changed();
+		emit_changed();
+	}
+
+	return OK;
+}
+
+Error StreamedTexture2D::load(const String &p_path) {
+	return _load_internal(p_path, true);
+}
+
+void StreamedTexture2D::update_texture() {
+	_load_internal(path_to_file, false);
+
+	if (streaming_state.is_valid()) {
+		const uint32_t streaming_min = mipmap_streaming_min > 0 ? 1 << (mipmap_streaming_min - 1) : 0;
+		const uint32_t streaming_max = mipmap_streaming_max > 0 ? 1 << (mipmap_streaming_max - 1) : 0;
+		TextureStreaming::get_singleton()->texture_update(streaming_state, w, h, streaming_min, streaming_max);
+	}
+}
+
+void StreamedTexture2D::reload_from_file() {
+	String path = path_to_file;
+	if (!path.is_resource_file()) {
+		return;
+	}
+
+	path = ResourceLoader::path_remap(path); //remap for translation
+	path = ResourceLoader::import_remap(path); //remap for import
+	if (!path.is_resource_file()) {
+		return;
+	}
+
+	load(path);
+}
+
+void StreamedTexture2D::reload_at_resolution(uint32_t p_resolution) {
+	_current_resolution = p_resolution;
+
+	_load_internal(path_to_file, false);
+}
+
+void StreamedTexture2D::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_mipmap_streaming_min"), &StreamedTexture2D::set_mipmap_streaming_min);
+	ClassDB::bind_method(D_METHOD("get_mipmap_streaming_min"), &StreamedTexture2D::get_mipmap_streaming_min);
+
+	ClassDB::bind_method(D_METHOD("set_mipmap_streaming_max"), &StreamedTexture2D::set_mipmap_streaming_max);
+	ClassDB::bind_method(D_METHOD("get_mipmap_streaming_max"), &StreamedTexture2D::get_mipmap_streaming_max);
+
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "min_resolution", PROPERTY_HINT_ENUM, "Default,1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192"), "set_mipmap_streaming_min", "get_mipmap_streaming_min");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_resolution", PROPERTY_HINT_ENUM, "Default,1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192"), "set_mipmap_streaming_max", "get_mipmap_streaming_max");
+}
+
+void StreamedTexture2D::set_mipmap_streaming_min(int p_min) {
+	mipmap_streaming_min = p_min;
+	fprintf(stderr, "set min %d\n", mipmap_streaming_min);
+	update_texture();
+}
+int StreamedTexture2D::get_mipmap_streaming_min() const {
+	return mipmap_streaming_min;
+}
+
+void StreamedTexture2D::set_mipmap_streaming_max(int p_max) {
+	mipmap_streaming_max = p_max;
+	fprintf(stderr, "set max %d\n", mipmap_streaming_max);
+	update_texture();
+}
+int StreamedTexture2D::get_mipmap_streaming_max() const {
+	return mipmap_streaming_max;
+}
+
+StreamedTexture2D::StreamedTexture2D() {
+	mipmap_streaming_min = 0;
+	mipmap_streaming_max = 0;
+	_current_resolution = GLOBAL_GET("rendering/textures/streaming/initial_size");
+}
+
+StreamedTexture2D::~StreamedTexture2D() {
+	if (streaming_state.is_valid()) {
+		TextureStreaming::get_singleton()->texture_remove(streaming_state);
+		streaming_state = RID();
+	}
+}
+
+Ref<Resource> ResourceFormatLoaderStreamedTexture2D::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	Ref<StreamedTexture2D> st;
+	st.instantiate();
+
+	// fprintf(stderr, "Loading streaming compressed texture %s %s\n", p_path.utf8().get_data(), p_original_path.utf8().get_data());
+	Error err = st->load(p_path);
+	if (r_error) {
+		*r_error = err;
+	}
+	if (err != OK) {
+		return Ref<Resource>();
+	}
+
+	return st;
+}
+
+void ResourceFormatLoaderStreamedTexture2D::get_recognized_extensions(List<String> *p_extensions) const {
+	p_extensions->push_back("ctex");
+}
+
+bool ResourceFormatLoaderStreamedTexture2D::handles_type(const String &p_type) const {
+	return p_type == "StreamedTexture2D";
+}
+
+String ResourceFormatLoaderStreamedTexture2D::get_resource_type(const String &p_path) const {
+	if (p_path.get_extension().to_lower() == "ctex") {
+		return "StreamedTexture2D";
 	}
 	return "";
 }

@@ -31,8 +31,10 @@
 #pragma once
 
 #include "core/templates/paged_allocator.h"
+#include "modules/texture_streaming/texture_streaming.h"
 #include "servers/rendering/renderer_rd/cluster_builder_rd.h"
 #include "servers/rendering/renderer_rd/effects/fsr2.h"
+#include <sys/types.h>
 #ifdef METAL_ENABLED
 #include "servers/rendering/renderer_rd/effects/metal_fx.h"
 #endif
@@ -228,8 +230,9 @@ private:
 		uint32_t element_offset = 0;
 		bool use_directional_soft_shadow = false;
 		SceneShaderForwardClustered::ShaderSpecialization base_specialization = {};
+		bool use_material_feedback = false;
 
-		RenderListParameters(GeometryInstanceSurfaceDataCache **p_elements, RenderElementInfo *p_element_info, int p_element_count, bool p_reverse_cull, PassMode p_pass_mode, uint32_t p_color_pass_flags, bool p_no_gi, bool p_use_directional_soft_shadows, RID p_render_pass_uniform_set, bool p_force_wireframe = false, const Vector2 &p_uv_offset = Vector2(), float p_lod_distance_multiplier = 0.0, float p_screen_mesh_lod_threshold = 0.0, uint32_t p_view_count = 1, uint32_t p_element_offset = 0, SceneShaderForwardClustered::ShaderSpecialization p_base_specialization = {}) {
+		RenderListParameters(GeometryInstanceSurfaceDataCache **p_elements, RenderElementInfo *p_element_info, int p_element_count, bool p_reverse_cull, PassMode p_pass_mode, uint32_t p_color_pass_flags, bool p_no_gi, bool p_use_directional_soft_shadows, RID p_render_pass_uniform_set, bool p_force_wireframe = false, const Vector2 &p_uv_offset = Vector2(), float p_lod_distance_multiplier = 0.0, float p_screen_mesh_lod_threshold = 0.0, uint32_t p_view_count = 1, uint32_t p_element_offset = 0, SceneShaderForwardClustered::ShaderSpecialization p_base_specialization = {}, bool p_use_material_feedback = false) {
 			elements = p_elements;
 			element_info = p_element_info;
 			element_count = p_element_count;
@@ -246,6 +249,7 @@ private:
 			element_offset = p_element_offset;
 			use_directional_soft_shadow = p_use_directional_soft_shadows;
 			base_specialization = p_base_specialization;
+			use_material_feedback = p_use_material_feedback;
 		}
 	};
 
@@ -330,7 +334,8 @@ private:
 			uint32_t gi_offset; //GI information when using lightmapping (VCT or lightmap index)
 			uint32_t layer_mask;
 			float lightmap_uv_scale[4];
-			float compressed_aabb_position[4];
+			float compressed_aabb_position[3];
+			uint32_t material_feedback_index;
 			float compressed_aabb_size[4];
 			float uv_scale[4];
 
@@ -402,6 +407,8 @@ private:
 
 		RID voxelgi_ids[MAX_VOXEL_GI_INSTANCESS];
 		uint32_t voxelgis_used = 0;
+
+		// RID material_feedback_buffer;
 
 		bool used_screen_texture = false;
 		bool used_normal_texture = false;

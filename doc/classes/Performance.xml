@@ -299,7 +299,9 @@
 		<constant name="NAVIGATION_3D_OBSTACLE_COUNT" value="58" enum="Monitor">
 			Number of active navigation obstacles in the [NavigationServer3D].
 		</constant>
-		<constant name="MONITOR_MAX" value="59" enum="Monitor">
+		<constant name="RENDER_STREAMING_TEXTURE_MEM_USED" value="59" enum="Monitor">
+		</constant>
+		<constant name="MONITOR_MAX" value="60" enum="Monitor">
 			Represents the size of the [enum Monitor] enum.
 		</constant>
 	</constants>

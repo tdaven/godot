@@ -37,6 +37,9 @@
 #include "servers/rendering/storage/variant_converters.h"
 #include "texture_storage.h"
 
+#include "modules/texture_streaming/texture_streaming.h"
+#include <cstdio>
+
 using namespace RendererRD;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -857,6 +860,12 @@ MaterialStorage::MaterialData::~MaterialData() {
 		material_storage->global_shader_uniforms.materials_using_texture.erase(global_texture_E);
 	}
 
+	if (material_feedback_rid.is_valid()) {
+		Vector<RID> empty_textures;
+		TextureStreaming::get_singleton()->material_set_textures(material_feedback_rid, empty_textures);
+		material_feedback_rid = RID();
+	}
+
 	for (int i = 0; i < 2; i++) {
 		if (uniform_buffer[i].is_valid()) {
 			RD::get_singleton()->free(uniform_buffer[i]);
@@ -876,6 +885,7 @@ void MaterialStorage::MaterialData::update_textures(const HashMap<StringName, Va
 
 	bool uses_global_textures = false;
 	global_textures_pass++;
+	Vector<RID> material_feedback_textures;
 
 	for (int i = 0, k = 0; i < p_texture_uniforms.size(); i++) {
 		const StringName &uniform_name = p_texture_uniforms[i].name;
@@ -1032,12 +1042,16 @@ void MaterialStorage::MaterialData::update_textures(const HashMap<StringName, Va
 			}
 		} else {
 			bool srgb = p_use_linear_color && p_texture_uniforms[i].use_color;
-
 			for (int j = 0; j < textures.size(); j++) {
 				TextureStorage::Texture *tex = TextureStorage::get_singleton()->get_texture(textures[j]);
 
 				if (tex) {
 					rd_texture = (srgb && tex->rd_texture_srgb.is_valid()) ? tex->rd_texture_srgb : tex->rd_texture;
+
+					if (tex->streaming_state.is_valid()) {
+						material_feedback_textures.push_back(tex->streaming_state);
+					}
+
 #ifdef TOOLS_ENABLED
 					if (tex->detect_3d_callback && p_3d_material) {
 						tex->detect_3d_callback(tex->detect_3d_callback_ud);
@@ -1071,6 +1085,11 @@ void MaterialStorage::MaterialData::update_textures(const HashMap<StringName, Va
 			}
 		}
 	}
+
+	if (material_feedback_rid.is_valid() || !material_feedback_textures.is_empty()) {
+		material_feedback_rid = TextureStreaming::get_singleton()->material_set_textures(material_feedback_rid, material_feedback_textures);
+	}
+
 	{
 		//for textures no longer used, unregister them
 		List<StringName> to_delete;

@@ -166,6 +166,10 @@
 			The path to the texture to consider as a normal map for roughness filtering on import. Specifying this can help decrease specular aliasing slightly in 3D.
 			Roughness filtering on import is only used in 3D rendering, not 2D.
 		</member>
+		<member name="streaming/max_resolution" type="int" setter="" getter="" default="0">
+		</member>
+		<member name="streaming/min_resolution" type="int" setter="" getter="" default="0">
+		</member>
 		<member name="svg/scale" type="float" setter="" getter="" default="1.0">
 			The scale the SVG should be rendered at, with [code]1.0[/code] being the original design size. Higher values result in a larger image. Note that unlike font oversampling, this affects the size the SVG is rendered at in 2D. See also [member editor/scale_with_editor_scale].
 			[b]Note:[/b] Only available for SVG images.

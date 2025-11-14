@@ -37,6 +37,9 @@
 
 class CompressedTexture2D;
 
+class ResourceImporterStreamedTexture;
+class ResourceImporterStreamedTextureDds;
+
 class ResourceImporterTexture : public ResourceImporter {
 	GDCLASS(ResourceImporterTexture, ResourceImporter);
 
@@ -46,7 +49,8 @@ public:
 		COMPRESS_LOSSY,
 		COMPRESS_VRAM_COMPRESSED,
 		COMPRESS_VRAM_UNCOMPRESSED,
-		COMPRESS_BASIS_UNIVERSAL
+		COMPRESS_BASIS_UNIVERSAL,
+		COMPRESS_EXTERNAL
 	};
 
 	enum ChannelRemap {
@@ -86,8 +90,8 @@ protected:
 	static ResourceImporterTexture *singleton;
 	static const char *compression_formats[];
 
-	void _save_ctex(const Ref<Image> &p_image, const String &p_to_path, CompressMode p_compress_mode, float p_lossy_quality, const Image::BasisUniversalPackerParams &p_basisu_params, Image::CompressMode p_vram_compression, bool p_mipmaps, bool p_streamable, bool p_detect_3d, bool p_detect_srgb, bool p_detect_normal, bool p_force_normal, bool p_srgb_friendly, bool p_force_po2_for_compressed, uint32_t p_limit_mipmap, const Ref<Image> &p_normal, Image::RoughnessChannel p_roughness_channel);
-	void _save_editor_meta(const Dictionary &p_metadata, const String &p_to_path);
+	static void _save_ctex(const Ref<Image> &p_image, const String &p_to_path, CompressMode p_compress_mode, float p_lossy_quality, const Image::BasisUniversalPackerParams &p_basisu_params, Image::CompressMode p_vram_compression, bool p_mipmaps, bool p_streamable, bool p_detect_3d, bool p_detect_srgb, bool p_detect_normal, bool p_force_normal, bool p_srgb_friendly, bool p_force_po2_for_compressed, uint32_t p_limit_mipmap, const Ref<Image> &p_normal, Image::RoughnessChannel p_roughness_channel, int p_mipmap_streaming_min, int p_mipmap_streaming_max);
+	static void _save_editor_meta(const Dictionary &p_metadata, const String &p_to_path);
 	Dictionary _load_editor_meta(const String &p_to_path) const;
 
 	static inline void _remap_channels(Ref<Image> &r_image, ChannelRemap p_options[4]);
@@ -127,4 +131,53 @@ public:
 
 	ResourceImporterTexture(bool p_singleton = false);
 	~ResourceImporterTexture();
+
+	friend class ResourceImporterStreamedTexture;
+	friend class ResourceImporterStreamedTextureDds;
+};
+
+class ResourceImporterStreamedTexture : public ResourceImporterTexture {
+	GDCLASS(ResourceImporterStreamedTexture, ResourceImporterTexture);
+
+	static ResourceImporterStreamedTexture *singleton;
+
+public:
+	static ResourceImporterStreamedTexture *get_singleton() { return singleton; }
+
+	String get_importer_name() const override;
+	String get_visible_name() const override;
+	void get_recognized_extensions(List<String> *p_extensions) const override;
+	String get_save_extension() const override;
+	String get_resource_type() const override;
+	float get_priority() const override { return 0.0; }
+
+	virtual void get_import_options(const String &p_path, List<ImportOption> *r_options, int p_preset = 0) const override;
+	virtual bool get_option_visibility(const String &p_path, const String &p_option, const HashMap<StringName, Variant> &p_options) const override;
+	virtual Error import(ResourceUID::ID p_source_id, const String &p_source_file, const String &p_save_path, const HashMap<StringName, Variant> &p_options, List<String> *r_platform_variants, List<String> *r_gen_files = nullptr, Variant *r_metadata = nullptr) override;
+
+	ResourceImporterStreamedTexture(bool p_singleton = false);
+	~ResourceImporterStreamedTexture();
+};
+
+class ResourceImporterStreamedTextureDds : public ResourceImporter {
+	GDCLASS(ResourceImporterStreamedTextureDds, ResourceImporter);
+
+	static ResourceImporterStreamedTextureDds *singleton;
+
+public:
+	static ResourceImporterStreamedTextureDds *get_singleton() { return singleton; }
+
+	String get_importer_name() const override;
+	String get_visible_name() const override;
+	void get_recognized_extensions(List<String> *p_extensions) const override;
+	String get_save_extension() const override;
+	String get_resource_type() const override;
+	float get_priority() const override { return 0.0; }
+
+	virtual void get_import_options(const String &p_path, List<ImportOption> *r_options, int p_preset = 0) const override;
+	virtual bool get_option_visibility(const String &p_path, const String &p_option, const HashMap<StringName, Variant> &p_options) const override;
+	virtual Error import(ResourceUID::ID p_source_id, const String &p_source_file, const String &p_save_path, const HashMap<StringName, Variant> &p_options, List<String> *r_platform_variants, List<String> *r_gen_files = nullptr, Variant *r_metadata = nullptr) override;
+
+	ResourceImporterStreamedTextureDds(bool p_singleton = false);
+	~ResourceImporterStreamedTextureDds();
 };

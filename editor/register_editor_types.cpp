@@ -30,6 +30,7 @@
 
 #include "register_editor_types.h"
 
+#include "core/object/class_db.h"
 #include "core/object/script_language.h"
 #include "editor/animation/animation_tree_editor_plugin.h"
 #include "editor/audio/audio_stream_editor_plugin.h"
@@ -133,6 +134,12 @@
 #include "editor/scene/3d/skeleton_ik_3d_editor_plugin.h"
 #endif
 
+#include "modules/modules_enabled.gen.h" // For gdscript, mono.
+
+#ifdef MODULE_DDS_ENABLED
+#include "modules/dds/texture_loader_dds.h"
+#endif // MODULE_DDS_ENABLED
+
 void register_editor_types() {
 	OS::get_singleton()->benchmark_begin_measure("Editor", "Register Types");
 
@@ -208,6 +215,12 @@ void register_editor_types() {
 	GDREGISTER_CLASS(ResourceImporterTexture);
 	GDREGISTER_CLASS(ResourceImporterTextureAtlas);
 	GDREGISTER_CLASS(ResourceImporterWAV);
+	GDREGISTER_CLASS(ResourceImporterStreamedTexture);
+	GDREGISTER_CLASS(ResourceImporterStreamedTextureDds);
+
+#ifdef MODULE_DDS_ENABLED
+	GDREGISTER_CLASS(ResourceImporterDds);
+#endif // MODULE_DDS_ENABLED
 
 	// This list is alphabetized, and plugins that depend on Node2D are in their own section below.
 	EditorPlugins::add_by_type<AnimationTreeEditorPlugin>();

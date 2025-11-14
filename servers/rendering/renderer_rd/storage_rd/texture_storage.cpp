@@ -32,7 +32,12 @@
 
 #include "../effects/copy_effects.h"
 #include "../framebuffer_cache_rd.h"
+#include "core/config/project_settings.h"
+#include "core/error/error_macros.h"
+#include "core/object/worker_thread_pool.h"
+#include "core/variant/callable.h"
 #include "material_storage.h"
+#include "modules/texture_streaming/texture_streaming.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 
 using namespace RendererRD;
@@ -1532,6 +1537,10 @@ Vector<Ref<Image>> TextureStorage::texture_3d_get(RID p_texture) const {
 
 void TextureStorage::texture_replace(RID p_texture, RID p_by_texture) {
 	Texture *tex = texture_owner.get_or_null(p_texture);
+	if (!tex) {
+		// Nothing to replace.
+		return;
+	}
 	ERR_FAIL_NULL(tex);
 	ERR_FAIL_COND(tex->proxy_to.is_valid()); //can't replace proxy
 	Texture *by_tex = texture_owner.get_or_null(p_by_texture);
@@ -1555,7 +1564,9 @@ void TextureStorage::texture_replace(RID p_texture, RID p_by_texture) {
 	Vector<RID> proxies_to_update = tex->proxies;
 	Vector<RID> proxies_to_redirect = by_tex->proxies;
 
+	RID streaming_state = tex->streaming_state;
 	*tex = *by_tex;
+	tex->streaming_state = streaming_state; //keep streaming info
 
 	tex->proxies = proxies_to_update; //restore proxies, so they can be updated
 
@@ -1569,6 +1580,7 @@ void TextureStorage::texture_replace(RID p_texture, RID p_by_texture) {
 	for (int i = 0; i < proxies_to_redirect.size(); i++) {
 		texture_proxy_update(proxies_to_redirect[i], p_texture);
 	}
+
 	//delete last, so proxies can be updated
 	texture_owner.free(p_by_texture);
 
@@ -4320,4 +4332,13 @@ uint32_t TextureStorage::render_target_get_color_usage_bits(bool p_msaa) {
 		// FIXME: Storage bit should only be requested when FSR is required.
 		return RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
 	}
+}
+
+void TextureStorage::texture_2d_attach_streaming_state(RID p_texture, RID p_streaming_state) {
+	Texture *tex = texture_owner.get_or_null(p_texture);
+	if (!tex) {
+		ERR_FAIL_NULL(tex);
+	}
+
+	tex->streaming_state = p_streaming_state;
 }

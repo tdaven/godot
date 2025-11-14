@@ -94,4 +94,6 @@ public:
 	const RendererSceneRender::RenderSDFGIUpdateData *sdfgi_update_data = nullptr;
 
 	uint32_t voxel_gi_count = 0;
+
+	bool material_feedback = false;
 };

@@ -28,28 +28,34 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "core/io/image_loader.h"
-#include "modules/register_module_types.h"
-
 #include "register_types.h"
-#include "texture_loader_dds.h"
 
-static Ref<ImageLoaderDDS> image_loader_dds;
+#include "core/config/engine.h"
+#include "core/object/class_db.h"
 
-void initialize_dds_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
-		return;
+#include "modules/register_module_types.h"
+#include "texture_streaming.h"
+
+static TextureStreaming *_texture_streaming_server = nullptr;
+
+void initialize_texture_streaming_module(ModuleInitializationLevel p_level) {
+	if (p_level == MODULE_INITIALIZATION_LEVEL_SERVERS) {
+		GDREGISTER_CLASS(TextureStreaming);
+
+		_texture_streaming_server = memnew(TextureStreaming);
+		GDREGISTER_CLASS(TextureStreaming);
+		Engine::get_singleton()->add_singleton(Engine::Singleton("TextureStreaming", TextureStreaming::get_singleton()));
 	}
 
-	image_loader_dds.instantiate();
-	ImageLoader::add_image_format_loader(image_loader_dds);
+	if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
+		TextureStreaming::get_singleton()->late_init();
+	}
 }
 
-void uninitialize_dds_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
-		return;
+void uninitialize_texture_streaming_module(ModuleInitializationLevel p_level) {
+	if (p_level == MODULE_INITIALIZATION_LEVEL_SERVERS) {
+		if (_texture_streaming_server) {
+			memdelete(_texture_streaming_server);
+		}
 	}
-
-	ImageLoader::remove_image_format_loader(image_loader_dds);
-	image_loader_dds.unref();
 }

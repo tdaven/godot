@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="StreamedTexture2D" inherits="CompressedTexture2D" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<members>
+		<member name="max_resolution" type="int" setter="set_mipmap_streaming_max" getter="get_mipmap_streaming_max" default="0">
+		</member>
+		<member name="min_resolution" type="int" setter="set_mipmap_streaming_min" getter="get_mipmap_streaming_min" default="0">
+		</member>
+	</members>
+</class>

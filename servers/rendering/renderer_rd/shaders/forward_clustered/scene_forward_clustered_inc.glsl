@@ -137,6 +137,10 @@ bool sc_multimesh_has_custom_data() {
 	return ((sc_packed_1() >> 3) & 1U) != 0;
 }
 
+bool sc_material_feedback() {
+	return ((sc_packed_1() >> 4) & 1U) != 0;
+}
+
 float sc_luminance_multiplier() {
 	// Not used in clustered renderer but we share some code with the mobile renderer that requires this.
 	return 1.0;
@@ -320,7 +324,8 @@ struct InstanceData {
 	uint gi_offset; //GI information when using lightmapping (VCT or lightmap index)
 	uint layer_mask;
 	vec4 lightmap_uv_scale;
-	vec4 compressed_aabb_position_pad; // Only .xyz is used. .w is padding.
+	vec3 compressed_aabb_position_pad; // Only .xyz is used. .w is padding.
+	uint material_feedback_index; // Index into the material feedback buffer.
 	vec4 compressed_aabb_size_pad; // Only .xyz is used. .w is padding.
 	vec4 uv_scale;
 };
@@ -329,6 +334,11 @@ layout(set = 1, binding = 2, std430) buffer restrict readonly InstanceDataBuffer
 	InstanceData data[];
 }
 instances;
+
+layout(set = 1, binding = 37, std430) buffer restrict coherent MaterialFeedbackBuffer {
+	uint data[];
+}
+material_feedback;
 
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 

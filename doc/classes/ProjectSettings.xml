@@ -3362,6 +3362,22 @@
 		<member name="rendering/textures/lossless_compression/force_png" type="bool" setter="" getter="" default="false">
 			If [code]true[/code], the texture importer will import lossless textures using the PNG format. Otherwise, it will default to using WebP.
 		</member>
+		<member name="rendering/textures/streaming/default_max_dimension" type="int" setter="" getter="" default="13">
+		</member>
+		<member name="rendering/textures/streaming/default_min_dimension" type="int" setter="" getter="" default="5">
+		</member>
+		<member name="rendering/textures/streaming/enabled" type="bool" setter="" getter="" default="false">
+		</member>
+		<member name="rendering/textures/streaming/idle_time" type="int" setter="" getter="" default="10000">
+		</member>
+		<member name="rendering/textures/streaming/initial_size" type="int" setter="" getter="" default="13">
+		</member>
+		<member name="rendering/textures/streaming/memory_budget_enabled" type="bool" setter="" getter="" default="true">
+		</member>
+		<member name="rendering/textures/streaming/memory_budget_mb" type="int" setter="" getter="" default="512">
+		</member>
+		<member name="rendering/textures/streaming/wait_time" type="int" setter="" getter="" default="100">
+		</member>
 		<member name="rendering/textures/vram_compression/cache_gpu_compressor" type="bool" setter="" getter="" default="true">
 			If [code]true[/code], the GPU texture compressor will cache the local RenderingDevice and its resources (shaders and pipelines), allowing for faster subsequent imports at a memory cost.
 		</member>

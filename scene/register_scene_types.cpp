@@ -349,11 +349,23 @@
 #include "scene/resources/3d/world_boundary_shape_3d.h"
 #endif // PHYSICS_3D_DISABLED
 
+#include "modules/modules_enabled.gen.h"
+
+#ifdef MODULE_DDS_ENABLED
+#include "modules/dds/texture_loader_dds.h"
+#endif // MODULE_DDS_ENABLED
+
 static Ref<ResourceFormatSaverText> resource_saver_text;
 static Ref<ResourceFormatLoaderText> resource_loader_text;
 
-static Ref<ResourceFormatLoaderCompressedTexture2D> resource_loader_stream_texture;
+static Ref<ResourceFormatLoaderCompressedTexture2D> resource_loader_compressed_texture;
+static Ref<ResourceFormatLoaderStreamedTexture2D> resource_loader_streamed_texture;
 static Ref<ResourceFormatLoaderCompressedTextureLayered> resource_loader_texture_layered;
+
+#ifdef MODULE_DDS_ENABLED
+static Ref<ResourceFormatLoaderDds> resource_loader_dds;
+#endif // MODULE_DDS_ENABLED
+
 static Ref<ResourceFormatLoaderCompressedTexture3D> resource_loader_texture_3d;
 
 static Ref<ResourceFormatSaverShader> resource_saver_shader;
@@ -371,9 +383,14 @@ void register_scene_types() {
 
 	Node::init_node_hrcr();
 
-	if (GD_IS_CLASS_ENABLED(CompressedTexture2D)) {
-		resource_loader_stream_texture.instantiate();
-		ResourceLoader::add_resource_format_loader(resource_loader_stream_texture);
+	if constexpr (GD_IS_CLASS_ENABLED(CompressedTexture2D)) {
+		resource_loader_compressed_texture.instantiate();
+		ResourceLoader::add_resource_format_loader(resource_loader_compressed_texture);
+	}
+
+	if constexpr (GD_IS_CLASS_ENABLED(StreamedTexture2D)) {
+		resource_loader_streamed_texture.instantiate();
+		ResourceLoader::add_resource_format_loader(resource_loader_streamed_texture);
 	}
 
 	if (GD_IS_CLASS_ENABLED(TextureLayered)) {
@@ -385,6 +402,13 @@ void register_scene_types() {
 		resource_loader_texture_3d.instantiate();
 		ResourceLoader::add_resource_format_loader(resource_loader_texture_3d);
 	}
+
+#ifdef MODULE_DDS_ENABLED
+	if constexpr (GD_IS_CLASS_ENABLED(ImageTexture)) {
+		resource_loader_dds.instantiate();
+		ResourceLoader::add_resource_format_loader(resource_loader_dds);
+	}
+#endif // MODULE_DDS_ENABLED
 
 	resource_saver_text.instantiate();
 	ResourceSaver::add_resource_format_saver(resource_saver_text, true);
@@ -1011,6 +1035,7 @@ void register_scene_types() {
 	GDREGISTER_VIRTUAL_CLASS(Texture2D);
 	GDREGISTER_CLASS(Sky);
 	GDREGISTER_CLASS(CompressedTexture2D);
+	GDREGISTER_CLASS(StreamedTexture2D);
 	GDREGISTER_CLASS(PortableCompressedTexture2D);
 	GDREGISTER_CLASS(ImageTexture);
 	GDREGISTER_CLASS(AtlasTexture);
@@ -1400,10 +1425,22 @@ void unregister_scene_types() {
 		resource_loader_texture_3d.unref();
 	}
 
-	if (GD_IS_CLASS_ENABLED(CompressedTexture2D)) {
-		ResourceLoader::remove_resource_format_loader(resource_loader_stream_texture);
-		resource_loader_stream_texture.unref();
+	if constexpr (GD_IS_CLASS_ENABLED(CompressedTexture2D)) {
+		ResourceLoader::remove_resource_format_loader(resource_loader_compressed_texture);
+		resource_loader_compressed_texture.unref();
 	}
+
+	if constexpr (GD_IS_CLASS_ENABLED(StreamedTexture2D)) {
+		ResourceLoader::remove_resource_format_loader(resource_loader_streamed_texture);
+		resource_loader_streamed_texture.unref();
+	}
+
+#ifdef MODULE_DDS_ENABLED
+	if constexpr (GD_IS_CLASS_ENABLED(ImageTexture)) {
+		ResourceLoader::remove_resource_format_loader(resource_loader_dds);
+		resource_loader_dds.unref();
+	}
+#endif // MODULE_DDS_ENABLED
 
 	ResourceSaver::remove_resource_format_saver(resource_saver_text);
 	resource_saver_text.unref();

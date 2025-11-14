@@ -60,6 +60,7 @@ public:
 	};
 
 private:
+protected:
 	String path_to_file;
 	mutable RID texture;
 	Image::Format format = Image::FORMAT_L8;
@@ -67,18 +68,18 @@ private:
 	int h = 0;
 	mutable Ref<BitMap> alpha_cache;
 
-	Error _load_data(const String &p_path, int &r_width, int &r_height, Ref<Image> &image, bool &r_request_3d, bool &r_request_normal, bool &r_request_roughness, int &mipmap_limit, int p_size_limit = 0);
+	// Error _load_data(const String &p_path, int &r_width, int &r_height, Ref<Image> &image, bool &r_request_3d, bool &r_request_normal, bool &r_request_roughness, int &mipmap_limit, int p_size_limit = 0);
 	virtual void reload_from_file() override;
 
 	static void _requested_3d(void *p_ud);
 	static void _requested_roughness(void *p_ud, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);
 	static void _requested_normal(void *p_ud);
 
-protected:
+	static Error _load_data(const String &p_path, int &r_width, int &r_height, Ref<Image> &image, bool &r_request_3d, bool &r_request_normal, bool &r_request_roughness, int &mipmap_limit, int p_size_limit, int p_max_mip_resolution, uint32_t &streaming_settings);
 	static void _bind_methods();
 
 public:
-	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit);
+	static Ref<Image> load_image_from_file(Ref<FileAccess> p_file, int p_size_limit, int p_max_resolution = 0);
 
 	typedef void (*TextureFormatRequestCallback)(const Ref<CompressedTexture2D> &);
 	typedef void (*TextureFormatRoughnessRequestCallback)(const Ref<CompressedTexture2D> &, const String &p_normal_path, RS::TextureDetectRoughnessChannel p_roughness_channel);
@@ -110,6 +111,50 @@ public:
 };
 
 class ResourceFormatLoaderCompressedTexture2D : public ResourceFormatLoader {
+public:
+	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
+	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
+	virtual bool handles_type(const String &p_type) const override;
+	virtual String get_resource_type(const String &p_path) const override;
+};
+
+class StreamedTexture2D : public CompressedTexture2D {
+	GDCLASS(StreamedTexture2D, CompressedTexture2D);
+
+private:
+	void update_texture();
+	void texture_reload(uint32_t p_resolution);
+	uint32_t _current_resolution = 32;
+
+	RID streaming_state;
+
+	int mipmap_streaming_min = 6;
+	int mipmap_streaming_max = 15;
+
+	Error _load_internal(const String &p_path, bool p_load_settings = true);
+
+protected:
+	static void _bind_methods();
+
+public:
+	void set_mipmap_streaming_min(int p_min);
+	int get_mipmap_streaming_min() const;
+
+	void set_mipmap_streaming_max(int p_max);
+	int get_mipmap_streaming_max() const;
+
+	Error load(const String &p_path);
+
+	void reload_from_file() override;
+	void reload_at_resolution(uint32_t p_resolution);
+
+	StreamedTexture2D();
+	~StreamedTexture2D();
+};
+
+class ResourceFormatLoaderStreamedTexture2D : public ResourceFormatLoader {
+	GDSOFTCLASS(ResourceFormatLoaderStreamedTexture2D, ResourceFormatLoader);
+
 public:
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;

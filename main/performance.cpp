@@ -51,6 +51,8 @@
 #include "servers/physics_server_3d.h"
 #endif // PHYSICS_3D_DISABLED
 
+#include "modules/texture_streaming/texture_streaming.h"
+
 Performance *Performance::singleton = nullptr;
 
 void Performance::_bind_methods() {
@@ -129,6 +131,7 @@ void Performance::_bind_methods() {
 	BIND_ENUM_CONSTANT(NAVIGATION_3D_EDGE_FREE_COUNT);
 	BIND_ENUM_CONSTANT(NAVIGATION_3D_OBSTACLE_COUNT);
 #endif // NAVIGATION_3D_DISABLED
+	BIND_ENUM_CONSTANT(RENDER_STREAMING_TEXTURE_MEM_USED);
 	BIND_ENUM_CONSTANT(MONITOR_MAX);
 }
 
@@ -209,6 +212,7 @@ String Performance::get_monitor_name(Monitor p_monitor) const {
 		PNAME("navigation_3d/edges_free"),
 		PNAME("navigation_3d/obstacles"),
 #endif // NAVIGATION_3D_DISABLED
+		PNAME("rendering/streaming_texture_mem_used"),
 	};
 	static_assert(std::size(names) == MONITOR_MAX);
 
@@ -432,7 +436,8 @@ double Performance::get_monitor(Monitor p_monitor) const {
 		case NAVIGATION_3D_OBSTACLE_COUNT:
 			return NavigationServer3D::get_singleton()->get_process_info(NavigationServer3D::INFO_OBSTACLE_COUNT);
 #endif // NAVIGATION_3D_DISABLED
-
+		case RENDER_STREAMING_TEXTURE_MEM_USED:
+			return TextureStreaming::get_singleton()->get_memory_budget_bytes_used();
 		default: {
 		}
 	}

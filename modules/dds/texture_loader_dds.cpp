@@ -31,9 +31,12 @@
 #include "texture_loader_dds.h"
 
 #include "dds_enums.h"
+#include "image_saver_dds.h"
 
 #include "core/io/file_access.h"
 #include "core/io/file_access_memory.h"
+#include "core/io/image.h"
+#include "core/io/resource_loader.h"
 #include "scene/resources/image_texture.h"
 
 DDSFormat _dxgi_to_dds_format(uint32_t p_dxgi_format) {
@@ -142,11 +145,11 @@ static Ref<Image> _dds_load_layer(Ref<FileAccess> p_file, DDSFormat p_dds_format
 
 		uint32_t size = MAX(1u, (w + 3) / 4) * MAX(1u, (h + 3) / 4) * info.block_size;
 
-		if (p_flags & DDSD_LINEARSIZE) {
-			ERR_FAIL_COND_V_MSG(size != p_pitch, Ref<Resource>(), "DDS header flags specify that a linear size of the top-level image is present, but the specified size does not match the expected value.");
-		} else {
-			ERR_FAIL_COND_V_MSG(p_pitch != 0, Ref<Resource>(), "DDS header flags specify that no linear size will given for the top-level image, but a non-zero linear size value is present in the header.");
-		}
+		// if (p_flags & DDSD_LINEARSIZE) {
+		// 	ERR_FAIL_COND_V_MSG(size != p_pitch, Ref<Resource>(), "DDS header flags specify that a linear size of the top-level image is present, but the specified size does not match the expected value.");
+		// } else {
+		// 	ERR_FAIL_COND_V_MSG(p_pitch != 0, Ref<Resource>(), "DDS header flags specify that no linear size will given for the top-level image, but a non-zero linear size value is present in the header.");
+		// }
 
 		for (uint32_t i = 1; i < p_mipmaps; i++) {
 			w = MAX(1u, w >> 1);
@@ -399,73 +402,69 @@ static Vector<Ref<Image>> _dds_load_images(Ref<FileAccess> p_f, DDSFormat p_dds_
 	return images;
 }
 
-static Ref<Resource> _dds_create_texture(const Vector<Ref<Image>> &p_images, uint32_t p_dds_type, uint32_t p_width, uint32_t p_height, uint32_t p_layer_count, uint32_t p_mipmaps, Error *r_error) {
-	ERR_FAIL_COND_V(p_images.is_empty(), Ref<Resource>());
+// static Ref<Resource> _dds_create_texture(const Vector<Ref<Image>> &p_images, uint32_t p_dds_type, uint32_t p_width, uint32_t p_height, uint32_t p_layer_count, uint32_t p_mipmaps, Error *r_error) {
+// 	ERR_FAIL_COND_V(p_images.is_empty(), Ref<Resource>());
 
-	if ((p_dds_type & DDST_TYPE_MASK) == DDST_2D) {
-		if (p_dds_type & DDST_ARRAY) {
-			Ref<Texture2DArray> texture;
-			texture.instantiate();
-			texture->create_from_images(p_images);
+// 	if ((p_dds_type & DDST_TYPE_MASK) == DDST_2D) {
+// 		if (p_dds_type & DDST_ARRAY) {
+// 			Ref<Texture2DArray> texture;
+// 			texture.instantiate();
+// 			texture->create_from_images(p_images);
 
-			if (r_error) {
-				*r_error = OK;
-			}
+// 			if (r_error) {
+// 				*r_error = OK;
+// 			}
 
-			return texture;
+// 			return texture;
 
-		} else {
-			if (r_error) {
-				*r_error = OK;
-			}
+// 		} else {
+// 			if (r_error) {
+// 				*r_error = OK;
+// 			}
 
-			return ImageTexture::create_from_image(p_images[0]);
-		}
+// 			return ImageTexture::create_from_image(p_images[0]);
+// 		}
 
-	} else if ((p_dds_type & DDST_TYPE_MASK) == DDST_CUBEMAP) {
-		ERR_FAIL_COND_V(p_layer_count % 6 != 0, Ref<Resource>());
+// 	} else if ((p_dds_type & DDST_TYPE_MASK) == DDST_CUBEMAP) {
+// 		ERR_FAIL_COND_V(p_layer_count % 6 != 0, Ref<Resource>());
 
-		if (p_dds_type & DDST_ARRAY) {
-			Ref<CubemapArray> texture;
-			texture.instantiate();
-			texture->create_from_images(p_images);
+// 		if (p_dds_type & DDST_ARRAY) {
+// 			Ref<CubemapArray> texture;
+// 			texture.instantiate();
+// 			texture->create_from_images(p_images);
 
-			if (r_error) {
-				*r_error = OK;
-			}
+// 			if (r_error) {
+// 				*r_error = OK;
+// 			}
 
-			return texture;
+// 			return texture;
 
-		} else {
-			Ref<Cubemap> texture;
-			texture.instantiate();
-			texture->create_from_images(p_images);
+// 		} else {
+// 			Ref<Cubemap> texture;
+// 			texture.instantiate();
+// 			texture->create_from_images(p_images);
 
-			if (r_error) {
-				*r_error = OK;
-			}
+// 			if (r_error) {
+// 				*r_error = OK;
+// 			}
 
-			return texture;
-		}
+// 			return texture;
+// 		}
 
-	} else if ((p_dds_type & DDST_TYPE_MASK) == DDST_3D) {
-		Ref<ImageTexture3D> texture;
-		texture.instantiate();
-		texture->create(p_images[0]->get_format(), p_width, p_height, p_layer_count, p_mipmaps > 1, p_images);
+// 	} else if ((p_dds_type & DDST_TYPE_MASK) == DDST_3D) {
+// 		Ref<ImageTexture3D> texture;
+// 		texture.instantiate();
+// 		texture->create(p_images[0]->get_format(), p_width, p_height, p_layer_count, p_mipmaps > 1, p_images);
 
-		if (r_error) {
-			*r_error = OK;
-		}
+// 		if (r_error) {
+// 			*r_error = OK;
+// 		}
 
-		return texture;
-	}
+// 		return texture;
+// 	}
 
-	return Ref<Resource>();
-}
-
-static Ref<Resource> _dds_create_texture_from_images(const Vector<Ref<Image>> &p_images, DDSFormat p_dds_format, uint32_t p_width, uint32_t p_height, uint32_t p_mipmaps, uint32_t p_pitch, uint32_t p_flags, uint32_t p_layer_count, uint32_t p_dds_type, Error *r_error) {
-	return _dds_create_texture(p_images, p_dds_type, p_width, p_height, p_layer_count, p_mipmaps, r_error);
-}
+// 	return Ref<Resource>();
+// }
 
 static Vector<Ref<Image>> _dds_load_images_from_buffer(Ref<FileAccess> p_f, DDSFormat &r_dds_format, uint32_t &r_width, uint32_t &r_height, uint32_t &r_mipmaps, uint32_t &r_pitch, uint32_t &r_flags, uint32_t &r_layer_count, uint32_t &r_dds_type, const String &p_path = "") {
 	ERR_FAIL_COND_V_MSG(p_f.is_null(), Vector<Ref<Image>>(), vformat("Empty DDS texture file."));
@@ -669,51 +668,6 @@ static Vector<Ref<Image>> _dds_load_images_from_buffer(Ref<FileAccess> p_f, DDSF
 	return _dds_load_images(p_f, r_dds_format, r_width, r_height, r_mipmaps, r_pitch, r_flags, r_layer_count);
 }
 
-static Ref<Resource> _dds_load_from_buffer(Ref<FileAccess> p_f, Error *r_error, const String &p_path = "") {
-	if (r_error) {
-		*r_error = ERR_FILE_CORRUPT;
-	}
-
-	DDSFormat dds_format;
-	uint32_t width = 0, height = 0, mipmaps = 0, pitch = 0, flags = 0, layer_count = 0, dds_type = 0;
-
-	Vector<Ref<Image>> images = _dds_load_images_from_buffer(p_f, dds_format, width, height, mipmaps, pitch, flags, layer_count, dds_type, p_path);
-	return _dds_create_texture_from_images(images, dds_format, width, height, mipmaps, pitch, flags, layer_count, dds_type, r_error);
-}
-
-static Ref<Resource> _dds_load_from_file(const String &p_path, Error *r_error) {
-	if (r_error) {
-		*r_error = ERR_CANT_OPEN;
-	}
-
-	Error err;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
-	if (f.is_null()) {
-		return Ref<Resource>();
-	}
-
-	return _dds_load_from_buffer(f, r_error, p_path);
-}
-
-Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
-	return _dds_load_from_file(p_path, r_error);
-}
-
-void ResourceFormatDDS::get_recognized_extensions(List<String> *p_extensions) const {
-	p_extensions->push_back("dds");
-}
-
-bool ResourceFormatDDS::handles_type(const String &p_type) const {
-	return ClassDB::is_parent_class(p_type, "Texture");
-}
-
-String ResourceFormatDDS::get_resource_type(const String &p_path) const {
-	if (p_path.get_extension().to_lower() == "dds") {
-		return "Texture";
-	}
-	return "";
-}
-
 Ref<Image> load_mem_dds(const uint8_t *p_dds, int p_size) {
 	ERR_FAIL_NULL_V(p_dds, Ref<Image>());
 	ERR_FAIL_COND_V(!p_size, Ref<Image>());
@@ -731,6 +685,107 @@ Ref<Image> load_mem_dds(const uint8_t *p_dds, int p_size) {
 	return images[0];
 }
 
-ResourceFormatDDS::ResourceFormatDDS() {
+Error ImageLoaderDDS::load_image(Ref<Image> p_image, Ref<FileAccess> f, BitField<ImageFormatLoader::LoaderFlags> p_flags, float p_scale) {
+	const uint64_t buffer_size = f->get_length();
+	Vector<uint8_t> file_buffer;
+	Error err = file_buffer.resize(buffer_size);
+	if (err) {
+		return err;
+	}
+
+	{
+		uint8_t *writer = file_buffer.ptrw();
+		f->get_buffer(writer, buffer_size);
+	}
+
+	return p_image->load_dds_from_buffer(file_buffer);
+}
+
+void ImageLoaderDDS::get_recognized_extensions(List<String> *p_extensions) const {
+	p_extensions->push_back("dds");
+}
+
+ImageLoaderDDS::ImageLoaderDDS() {
+	Image::save_dds_func = save_dds;
+	Image::save_dds_buffer_func = save_dds_buffer;
 	Image::_dds_mem_loader_func = load_mem_dds;
+}
+
+ImageLoaderDDS::~ImageLoaderDDS() {
+	Image::save_dds_func = nullptr;
+	Image::save_dds_buffer_func = nullptr;
+	Image::_dds_mem_loader_func = nullptr;
+}
+
+ResourceImporterDds *ResourceImporterDds::singleton = nullptr;
+
+String ResourceImporterDds::get_importer_name() const {
+	return "image_texture_dds";
+}
+String ResourceImporterDds::get_visible_name() const {
+	return "ImageTexture";
+}
+void ResourceImporterDds::get_recognized_extensions(List<String> *p_extensions) const {
+	p_extensions->push_back("dds");
+}
+
+String ResourceImporterDds::get_save_extension() const {
+	return "dds";
+}
+String ResourceImporterDds::get_resource_type() const {
+	return "ImageTexture";
+}
+
+void ResourceImporterDds::get_import_options(const String &p_path, List<ImportOption> *r_options, int p_preset) const {
+}
+
+bool ResourceImporterDds::get_option_visibility(const String &p_path, const String &p_option, const HashMap<StringName, Variant> &p_options) const {
+	return true;
+}
+
+Error ResourceImporterDds::import(ResourceUID::ID p_source_id, const String &p_source_file, const String &p_save_path, const HashMap<StringName, Variant> &p_options, List<String> *r_platform_variants, List<String> *r_gen_files, Variant *r_metadata) {
+	Ref<FileAccess> f = FileAccess::open(p_save_path + ".dds", FileAccess::WRITE);
+	ERR_FAIL_COND_V(f.is_null(), FAILED);
+	return OK;
+}
+
+ResourceImporterDds::ResourceImporterDds(bool p_singleton) {
+	// This should only be set through the EditorNode.
+	if (p_singleton) {
+		singleton = this;
+	}
+}
+
+ResourceImporterDds::~ResourceImporterDds() {}
+
+Ref<Resource> ResourceFormatLoaderDds::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	Ref<Image> img;
+	img.instantiate();
+	Error err = ImageLoader::load_image(p_original_path, img);
+
+	if (err != OK) {
+		if (r_error) {
+			*r_error = err;
+		}
+
+		return Ref<Resource>();
+	}
+
+	return ImageTexture::create_from_image(img);
+}
+
+void ResourceFormatLoaderDds::get_recognized_extensions(List<String> *p_extensions) const {
+	p_extensions->push_back("dds");
+}
+
+bool ResourceFormatLoaderDds::handles_type(const String &p_type) const {
+	return p_type == "ImageTexture";
+}
+
+String ResourceFormatLoaderDds::get_resource_type(const String &p_path) const {
+	if (p_path.get_extension().to_lower() == "dds") {
+		return "ImageTexture";
+	}
+
+	return "";
 }

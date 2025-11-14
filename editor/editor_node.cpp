@@ -182,6 +182,10 @@
 
 #include "modules/modules_enabled.gen.h" // For gdscript, mono.
 
+#ifdef MODULE_DDS_ENABLED
+#include "modules/dds/texture_loader_dds.h"
+#endif // MODULE_DDS_ENABLED
+
 #ifndef PHYSICS_2D_DISABLED
 #include "servers/physics_server_2d.h"
 #endif // PHYSICS_2D_DISABLED
@@ -531,6 +535,7 @@ void EditorNode::_update_from_settings() {
 	tree->set_debug_collision_contact_color(GLOBAL_GET("debug/shapes/collision/contact_color"));
 
 	ResourceImporterTexture::get_singleton()->update_imports();
+	ResourceImporterStreamedTexture::get_singleton()->update_imports();
 
 	_update_translations();
 
@@ -812,6 +817,7 @@ void EditorNode::_notification(int p_what) {
 			editor_selection->update();
 
 			ResourceImporterTexture::get_singleton()->update_imports();
+			ResourceImporterStreamedTexture::get_singleton()->update_imports();
 
 			if (requested_first_scan) {
 				requested_first_scan = false;
@@ -7670,6 +7676,12 @@ EditorNode::EditorNode() {
 		Ref<ResourceImporterTexture> import_texture = memnew(ResourceImporterTexture(true));
 		ResourceFormatImporter::get_singleton()->add_importer(import_texture);
 
+		Ref<ResourceImporterStreamedTexture> import_streamed_texture = memnew(ResourceImporterStreamedTexture(true));
+		ResourceFormatImporter::get_singleton()->add_importer(import_streamed_texture);
+
+		Ref<ResourceImporterStreamedTextureDds> import_streamed_texture_dds = memnew(ResourceImporterStreamedTextureDds(true));
+		ResourceFormatImporter::get_singleton()->add_importer(import_streamed_texture_dds);
+
 		Ref<ResourceImporterLayeredTexture> import_cubemap;
 		import_cubemap.instantiate();
 		import_cubemap->set_mode(ResourceImporterLayeredTexture::MODE_CUBEMAP);
@@ -7752,6 +7764,12 @@ EditorNode::EditorNode() {
 		Ref<ResourceImporterBitMap> import_bitmap;
 		import_bitmap.instantiate();
 		ResourceFormatImporter::get_singleton()->add_importer(import_bitmap);
+
+#ifdef MODULE_DDS_ENABLED
+		Ref<ResourceImporterDds> import_dds;
+		import_dds.instantiate();
+		ResourceFormatImporter::get_singleton()->add_importer(import_dds);
+#endif
 	}
 
 	{

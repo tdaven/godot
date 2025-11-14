@@ -30,15 +30,49 @@
 
 #pragma once
 
+#include "core/io/image_loader.h"
+#include "core/io/resource_importer.h"
 #include "core/io/resource_loader.h"
 
-class ResourceFormatDDS : public ResourceFormatLoader {
+class ImageLoaderDDS : public ImageFormatLoader {
+private:
+public:
+	virtual Error load_image(Ref<Image> p_image, Ref<FileAccess> f, BitField<ImageFormatLoader::LoaderFlags> p_flags, float p_scale);
+	virtual void get_recognized_extensions(List<String> *p_extensions) const;
+	ImageLoaderDDS();
+	virtual ~ImageLoaderDDS();
+};
+
+class ResourceImporterDds : public ResourceImporter {
+	GDCLASS(ResourceImporterDds, ResourceImporter);
+
+	static ResourceImporterDds *singleton;
+
+public:
+	static ResourceImporterDds *get_singleton() { return singleton; }
+
+	String get_importer_name() const override;
+	String get_visible_name() const override;
+	void get_recognized_extensions(List<String> *p_extensions) const override;
+	String get_save_extension() const override;
+	String get_resource_type() const override;
+	float get_priority() const override { return 2.0; }
+
+	virtual void get_import_options(const String &p_path, List<ImportOption> *r_options, int p_preset = 0) const override;
+	virtual bool get_option_visibility(const String &p_path, const String &p_option, const HashMap<StringName, Variant> &p_options) const override;
+
+	virtual Error import(ResourceUID::ID p_source_id, const String &p_source_file, const String &p_save_path, const HashMap<StringName, Variant> &p_options, List<String> *r_platform_variants, List<String> *r_gen_files = nullptr, Variant *r_metadata = nullptr) override;
+
+	ResourceImporterDds(bool p_singleton = false);
+	~ResourceImporterDds();
+};
+
+class ResourceFormatLoaderDds : public ResourceFormatLoader {
+	GDSOFTCLASS(ResourceFormatLoaderDds, ResourceFormatLoader);
+
 public:
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
 	virtual bool handles_type(const String &p_type) const override;
 	virtual String get_resource_type(const String &p_path) const override;
-
-	ResourceFormatDDS();
-	virtual ~ResourceFormatDDS() {}
 };
