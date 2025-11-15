@@ -513,7 +513,7 @@ void StreamedTexture2D::texture_reload(uint32_t p_resolution) {
 
 	_current_resolution = p_resolution;
 
-	// fprintf(stderr, "Reloading texture %s %lu at resolution %u\n", path_to_file.utf8().get_data(), texture.get_id(), _resolution);
+	// fprintf(stderr, "Reloading texture %s %lu at resolution %u\n", path_to_file.utf8().get_data(), texture.get_id(), p_resolution);
 
 	_load_internal(path_to_file, false);
 }

@@ -181,7 +181,7 @@ RID TextureStreaming::material_set_textures(RID p_feeback_rid, Vector<RID> &p_te
 
 void TextureStreaming::_settings_changed() {
 	setting_texture_change_idle_msec = GLOBAL_GET("rendering/textures/streaming/idle_time");
-	setting_texture_change_wait_msec = 100ull; //GLOBAL_GET("rendering/textures/streaming/wait_time");
+	setting_texture_change_wait_msec = GLOBAL_GET("rendering/textures/streaming/wait_time");
 	setting_texture_min_resolution = 1 << int(GLOBAL_GET("rendering/textures/streaming/default_min_dimension"));
 	setting_texture_max_resolution = 1 << int(GLOBAL_GET("rendering/textures/streaming/default_max_dimension"));
 	setting_streaming_is_enabled = GLOBAL_GET("rendering/textures/streaming/enabled");
@@ -196,7 +196,7 @@ TextureStreaming::TextureStreaming() {
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/initial_size", PROPERTY_HINT_ENUM, "1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192"), 13);
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/default_max_dimension", PROPERTY_HINT_ENUM, "1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192"), 13);
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/default_min_dimension", PROPERTY_HINT_ENUM, "1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192"), 5);
-	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/idle_time"), 10000);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/idle_time"), 1000);
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/wait_time"), 100);
 	GLOBAL_DEF("rendering/textures/streaming/memory_budget_enabled", true);
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/streaming/memory_budget_mb"), 512);
@@ -405,6 +405,7 @@ void TextureStreaming::_feedback_buffer_thread_main() {
 				const uint32_t *p_data = (uint32_t *)data_ptr;
 				for (uint32_t i = 0; i < mb->rid_map.size(); i++) {
 					uint32_t requested_resolution = p_data[i];
+					// fprintf(stderr, "Material %u requested resolution %u\n", i, requested_resolution);
 					if (requested_resolution == 0) {
 						// Don't request 0.  Let the natural decay method to reduce the resolution.
 						continue;

@@ -263,16 +263,13 @@ private:
 		float smoothed_max = 0.0f;
 		uint64_t last_update_tick_msec = 0;
 
-		uint32_t update(uint32_t p_value, uint64_t p_current_tick_msec, float p_decay_per_msec = 0.0001f) {
+		uint32_t update(uint32_t p_value, uint64_t p_current_tick_msec, float p_decay_per_msec = 0.001f) {
 			float value = log2(p_value);
 			// Linear decay based on time
 			if (last_update_tick_msec > 0) {
 				uint64_t delta_msec = p_current_tick_msec - last_update_tick_msec;
 				smoothed_max = MAX(0.0f, smoothed_max - (float(delta_msec) * p_decay_per_msec));
-			} else {
-				// fprintf(stderr, "WTF\n");
 			}
-
 			smoothed_max = MAX(float(value), smoothed_max);
 			last_update_tick_msec = p_current_tick_msec;
 

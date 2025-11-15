@@ -32,6 +32,7 @@ layout(location = 3) in vec4 color_attrib;
 
 #ifdef UV_USED
 layout(location = 4) in vec2 uv_attrib;
+vec2 uv_interp;
 #endif
 
 #if defined(UV2_USED) || defined(USE_LIGHTMAP) || defined(MODE_RENDER_MATERIAL)
@@ -101,7 +102,7 @@ layout(location = 2) out vec4 color_interp;
 #endif
 
 #ifdef UV_USED
-layout(location = 3) out vec2 uv_interp;
+layout(location = 3) out vec2 uv_interp_internal;
 #endif
 
 #if defined(UV2_USED) || defined(USE_LIGHTMAP)
@@ -469,6 +470,10 @@ void vertex_shader(vec3 vertex_input,
 #endif
 
 	vertex_interp = vertex;
+
+#ifdef UV_USED
+	uv_interp_internal = uv_interp;
+#endif
 
 	// Normalize TBN vectors before interpolation, per MikkTSpace.
 	// See: http://www.mikktspace.com/
@@ -851,7 +856,8 @@ layout(location = 2) in vec4 color_interp;
 #endif
 
 #ifdef UV_USED
-layout(location = 3) in vec2 uv_interp;
+layout(location = 3) in vec2 uv_interp_internal;
+vec2 uv_interp = uv_interp_internal;
 #endif
 
 #if defined(UV2_USED) || defined(USE_LIGHTMAP)
@@ -1358,8 +1364,7 @@ void fragment_shader(in SceneData scene_data) {
 		vec2 uv_dx = dFdx(uv_interp);
 		vec2 uv_dy = dFdy(uv_interp);
 		// if (miplevelSample(gl_FragCoord.xy)) {
-		// if (subgroupElect())
-		{
+		if (subgroupElect()) {
 			uint resolution0 = getMipMask(uv_dx, uv_dy);
 			uint material_feedback_index = instances.data[instance_index].material_feedback_index;
 			atomicMax(material_feedback.data[material_feedback_index], resolution0); // Mark as used.
@@ -2892,19 +2897,11 @@ void fragment_shader(in SceneData scene_data) {
 	frag_color = vec4(albedo, alpha);
 #else
 	frag_color = vec4(emission + ambient_light + diffuse_light + direct_specular_light + indirect_specular_light, alpha);
-	//frag_color = vec4(1.0);
 
-	// #if defined(UV_USED)
-	// 	vec2 uv_dx = dFdxCoarse(uv_interp);
-	// 	vec2 uv_dy = dFdyCoarse(uv_interp);
-	// 	// float lod = log2(max(, ) * 8192.0);
-	// 	frag_color.r = length(uv_dx)*10.0;
-	// 	frag_color.g = length(uv_dy)*10.0;
-	// 	frag_color.b = 0.5 * (frag_color.r + frag_color.g);
-	// #endif
-
+// #ifdef UV_USED
+// 	frag_color.rgba = vec4(length(dFdx(uv_interp)), length(dFdy(uv_interp)), 0.0, 1.0);
+// #endif //UV_USED
 #endif //USE_NO_SHADING
-
 #ifndef FOG_DISABLED
 	// Draw "fixed" fog before volumetric fog to ensure volumetric fog can appear in front of the sky.
 	frag_color.rgb = mix(frag_color.rgb, fog.rgb, fog.a);
