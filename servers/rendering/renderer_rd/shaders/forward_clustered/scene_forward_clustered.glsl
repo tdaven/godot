@@ -1168,10 +1168,21 @@ bool miplevelSample(vec2 screen_uv) {
 }
 
 uint getMipMask(vec2 uv_dx, vec2 uv_dy) {
-	float lod = -log2(max(length(uv_dx), length(uv_dy)));
-	lod = clamp(lod, 0.0, 15.0); // clamp to the max resolution you can support/have bits for
+	// Calculate mip level - POSITIVE log2, larger derivatives = higher mip level (lower resolution)
+	float lod = 0.5 * abs(log2(max(dot(uv_dx, uv_dx), dot(uv_dy, uv_dy))));
+
+	// // Clamp to valid range (adjust max based on your texture mip count)
+	lod = clamp(lod, 0.0, 15.0);
+
+	// Convert to resolution mask
+	// mip 0 = full res (bit 0), mip 1 = half res (bit 1), etc.
 	uint mask = 1 << uint(ceil(lod));
 	return mask;
+
+	// float lod = -log2(max(length(uv_dx), length(uv_dy)));
+	// lod = clamp(lod, 0.0, 15.0); // clamp to the max resolution you can support/have bits for
+	// uint mask = 1 << uint(ceil(lod));
+	// return mask;
 }
 #endif
 

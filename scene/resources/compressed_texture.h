@@ -124,7 +124,8 @@ class StreamedTexture2D : public CompressedTexture2D {
 private:
 	void update_texture();
 	void texture_reload(uint32_t p_resolution);
-	uint32_t _current_resolution = 32;
+	uint32_t _current_resolution = 0;
+	bool use_streaming = false;
 
 	RID streaming_state;
 

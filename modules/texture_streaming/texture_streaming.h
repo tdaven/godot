@@ -252,7 +252,6 @@ private:
 	// Buffer pool management
 	BinaryMutex buffer_pool_mutex;
 	Vector<RID> buffer_pool;
-	int buffer_count = 0;
 
 	RID_Owner<MaterialFeedbackBuffer, true> feedback_buffer_owner;
 	RID_Owner<StreamingState, true> streaming_info_owner;
@@ -297,6 +296,7 @@ private:
 	ConditionVariable feedback_buffer_condvar;
 	SelfList<MaterialFeedbackBuffer>::List feedback_buffer_queue;
 	Thread feedback_buffer_thread;
+	Thread::ID feedback_buffer_thread_id;
 	bool feedback_buffer_thread_exit = false;
 	uint64_t feedback_buffer_last_submit_ticks = 0;
 
@@ -309,6 +309,7 @@ private:
 	ConditionVariable texture_reload_condvar;
 	SelfList<StreamingState>::List texture_reload_queue;
 	Thread texture_reload_thread;
+	Thread::ID texture_reload_thread_id;
 	bool texture_reload_thread_exit = false;
 
 	static void _texture_reload_thread_func(void *p_udata);
@@ -330,6 +331,7 @@ private:
 
 	RID feedback_buffer_get(uint32_t p_num_materials);
 	void feedback_buffer_submit(RID p_buffer, uint64_t frame);
+	bool feedback_buffer_available() const;
 
 public:
 	static TextureStreaming *get_singleton();
@@ -337,7 +339,6 @@ public:
 	// Feedback Buffer API
 	uint32_t feedback_buffer_material_index(RID p_material);
 	RID feedback_buffer_get_uniform_rid();
-	void late_init();
 	bool feedback_buffer_valid() const {
 		return m_current_feedback_buffer.is_valid();
 	}
@@ -357,34 +358,44 @@ public:
 	void set_streaming_min_resolution(uint32_t p_resolution) {
 		setting_texture_min_resolution = p_resolution;
 	}
+
 	uint32_t get_streaming_min_resolution() const {
 		return setting_texture_min_resolution;
 	}
+
 	void set_streaming_max_resolution(uint32_t p_resolution) {
 		setting_texture_max_resolution = p_resolution;
 	}
+
 	uint32_t get_streaming_max_resolution() const {
 		return setting_texture_max_resolution;
 	}
+
 	void set_streaming_enabled(bool p_enabled) {
 		setting_streaming_is_enabled = p_enabled;
 	}
+
 	bool is_streaming_enabled() const {
 		return setting_streaming_is_enabled;
 	}
+
 	void set_budget_enabled(bool p_enabled) {
 		setting_budget_enabled = p_enabled;
 	}
+
 	bool is_budget_enabled() const {
 		return setting_budget_enabled;
 	}
+
 	void set_memory_budget_mb(float p_mb) {
 		setting_budget_mb = uint32_t(p_mb);
 	}
+
 	float get_memory_budget_mb() const {
 		return float(setting_budget_mb) / (1024.0f * 1024.0f);
 	}
 
+	void late_init();
 	TextureStreaming();
 	virtual ~TextureStreaming();
 };

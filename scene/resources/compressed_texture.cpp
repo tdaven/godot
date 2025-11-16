@@ -523,13 +523,6 @@ Error StreamedTexture2D::_load_internal(const String &p_path, bool p_load_settin
 	Ref<Image> image;
 	image.instantiate();
 
-	const bool streaming_enabled = GLOBAL_GET("rendering/textures/streaming/enabled");
-	const String rendering_method = OS::get_singleton()->get_current_rendering_method();
-	const bool use_streaming = streaming_enabled && rendering_method != "gl_compatibility";
-	if (!use_streaming) {
-		_current_resolution = 0; // force full resolution
-	}
-
 	bool request_3d;
 	bool request_normal;
 	bool request_roughness;
@@ -681,7 +674,15 @@ int StreamedTexture2D::get_mipmap_streaming_max() const {
 StreamedTexture2D::StreamedTexture2D() {
 	mipmap_streaming_min = 0;
 	mipmap_streaming_max = 0;
-	_current_resolution = GLOBAL_GET("rendering/textures/streaming/initial_size");
+
+	const bool streaming_enabled = GLOBAL_GET("rendering/textures/streaming/enabled");
+	const String rendering_method = OS::get_singleton()->get_current_rendering_method();
+	use_streaming = streaming_enabled && rendering_method != "gl_compatibility";
+	if (!use_streaming) {
+		_current_resolution = 0; // force full resolution
+	} else {
+		_current_resolution = 1u << uint32_t(GLOBAL_GET("rendering/textures/streaming/initial_size"));
+	}
 }
 
 StreamedTexture2D::~StreamedTexture2D() {

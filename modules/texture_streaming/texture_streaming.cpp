@@ -34,6 +34,7 @@
 #include "core/math/random_pcg.h"
 #include "core/object/callable_method_pointer.h"
 #include "core/os/os.h"
+#include "core/string/print_string.h"
 #include "core/templates/rid.h"
 #include "core/typedefs.h"
 #include "core/variant/callable.h"
@@ -187,6 +188,15 @@ void TextureStreaming::_settings_changed() {
 	setting_streaming_is_enabled = GLOBAL_GET("rendering/textures/streaming/enabled");
 	setting_budget_enabled = GLOBAL_GET("rendering/textures/streaming/memory_budget_enabled");
 	setting_budget_mb = GLOBAL_GET("rendering/textures/streaming/memory_budget_mb");
+
+	print_line(vformat("TextureStreaming settings changed: enabled=%d, budget_enabled=%d, budget_mb=%d, min_res=%d, max_res=%d, wait_msec=%d, idle_msec=%d",
+			(int)setting_streaming_is_enabled,
+			(int)setting_budget_enabled,
+			setting_budget_mb,
+			setting_texture_min_resolution,
+			setting_texture_max_resolution,
+			setting_texture_change_wait_msec,
+			setting_texture_change_idle_msec));
 }
 
 TextureStreaming::TextureStreaming() {
@@ -220,8 +230,13 @@ TextureStreaming::~TextureStreaming() {
 		texture_reload_condvar.notify_one();
 	}
 
-	feedback_buffer_thread.wait_to_finish();
-	texture_reload_thread.wait_to_finish();
+	if (feedback_buffer_thread.is_started()) {
+		feedback_buffer_thread.wait_to_finish();
+	}
+
+	if (texture_reload_thread.is_started()) {
+		texture_reload_thread.wait_to_finish();
+	}
 
 	// Clean up buffer pool
 	{
@@ -238,10 +253,10 @@ TextureStreaming::~TextureStreaming() {
 
 void TextureStreaming::late_init() {
 	ERR_NOT_ON_RENDER_THREAD;
-	// MutexLock lock(buffer_pool_mutex);
 
 	const bool streaming_enabled = GLOBAL_GET("rendering/textures/streaming/enabled");
 	if (!streaming_enabled) {
+		WARN_PRINT("Texture streaming is disabled in project settings.");
 		return;
 	}
 
@@ -251,29 +266,57 @@ void TextureStreaming::late_init() {
 		return;
 	}
 
-	const uint32_t num_materials = RendererRD::MaterialStorage::get_singleton()->num_materials();
-	m_current_feedback_buffer = feedback_buffer_get(num_materials);
+	{
+		MutexLock lock(buffer_pool_mutex);
+		while (buffer_pool.size() < 4) {
+			RID buffer = feedback_buffer_owner.allocate_rid();
+			MaterialFeedbackBuffer materialFeedbackBuffer;
+			materialFeedbackBuffer.buffer = RID();
+			materialFeedbackBuffer.buffer_size = 0;
+			materialFeedbackBuffer.rid_map.clear();
+			materialFeedbackBuffer.self = buffer;
 
-	ProjectSettings::get_singleton()->connect("settings_changed", callable_mp(this, &TextureStreaming::_settings_changed));
-	_settings_changed();
-
-	RenderingServer::get_singleton()->connect("frame_post_draw", callable_mp(this, &TextureStreaming::feedback_frame_done_callback));
-
-	feedback_buffer_thread_exit = false;
-	feedback_buffer_thread.start(_feedback_buffer_thread_func, this);
-
-	texture_reload_thread_exit = false;
-	texture_reload_thread.start(_texture_reload_thread_func, this);
-}
-
-void TextureStreaming::feedback_frame_done_callback() {
-	if (m_current_feedback_buffer.is_valid()) {
-		const uint64_t frame = Engine::get_singleton()->get_frames_drawn();
-		feedback_buffer_submit(m_current_feedback_buffer, frame);
+			feedback_buffer_owner.initialize_rid(buffer, materialFeedbackBuffer);
+			buffer_pool.push_back(buffer);
+		}
 	}
 
 	const uint32_t num_materials = RendererRD::MaterialStorage::get_singleton()->num_materials();
 	m_current_feedback_buffer = feedback_buffer_get(num_materials);
+
+	Error err = ProjectSettings::get_singleton()->connect("settings_changed", callable_mp(this, &TextureStreaming::_settings_changed));
+	if (err != OK) {
+		ERR_PRINT("Failed to connect settings changed signal.");
+	}
+
+	_settings_changed();
+
+	err = RenderingServer::get_singleton()->connect("frame_post_draw", callable_mp(this, &TextureStreaming::feedback_frame_done_callback));
+	if (err != OK) {
+		ERR_PRINT("Failed to connect frame post draw signal.");
+	}
+
+	feedback_buffer_thread_exit = false;
+	feedback_buffer_thread_id = feedback_buffer_thread.start(_feedback_buffer_thread_func, this);
+
+	texture_reload_thread_exit = false;
+	texture_reload_thread_id = texture_reload_thread.start(_texture_reload_thread_func, this);
+}
+
+void TextureStreaming::feedback_frame_done_callback() {
+	if (m_current_feedback_buffer.is_valid() && feedback_buffer_available()) {
+		const uint64_t frame = Engine::get_singleton()->get_frames_drawn();
+		feedback_buffer_submit(m_current_feedback_buffer, frame);
+	} else {
+		WARN_PRINT("TextureStreaming feedback_frame_done_callback called with invalid feedback buffer RID.");
+	}
+
+	const uint32_t num_materials = RendererRD::MaterialStorage::get_singleton()->num_materials();
+	m_current_feedback_buffer = feedback_buffer_get(num_materials);
+
+	if (m_current_feedback_buffer.is_null()) {
+		WARN_PRINT("TextureStreaming feedback_frame_done_callback failed to get a valid feedback buffer RID.");
+	}
 }
 
 RID TextureStreaming::feedback_buffer_get_uniform_rid() {
@@ -283,7 +326,16 @@ RID TextureStreaming::feedback_buffer_get_uniform_rid() {
 		return _buffer->buffer;
 	}
 
+	WARN_PRINT("Failed to get feedback buffer uniform RID.");
+
 	return RID();
+}
+
+bool TextureStreaming::feedback_buffer_available() const {
+	ERR_NOT_ON_RENDER_THREAD_V(false);
+	MutexLock lock(buffer_pool_mutex);
+
+	return buffer_pool.size() > 0;
 }
 
 RID TextureStreaming::feedback_buffer_get(uint32_t p_num_materials) {
@@ -292,19 +344,9 @@ RID TextureStreaming::feedback_buffer_get(uint32_t p_num_materials) {
 
 	RID buffer = RID();
 	if (buffer_pool.size() > 0) {
-		// Reuse a buffer from the pool
+		// Use a buffer from the pool
 		buffer = buffer_pool[buffer_pool.size() - 1];
 		buffer_pool.remove_at(buffer_pool.size() - 1);
-	} else if (buffer_count < 4) {
-		buffer = feedback_buffer_owner.allocate_rid();
-		MaterialFeedbackBuffer materialFeedbackBuffer;
-		materialFeedbackBuffer.buffer = RID();
-		materialFeedbackBuffer.buffer_size = 0;
-		materialFeedbackBuffer.rid_map.clear();
-		materialFeedbackBuffer.self = buffer;
-
-		feedback_buffer_owner.initialize_rid(buffer, materialFeedbackBuffer);
-		buffer_count++;
 	}
 
 	if (buffer.is_valid()) {
@@ -369,6 +411,8 @@ void TextureStreaming::_feedback_buffer_thread_func(void *p_udata) {
 	Thread::set_name("TextureStreaming");
 
 	TextureStreaming *tss = static_cast<TextureStreaming *>(p_udata);
+
+	print_line("Texture Streaming process thread starting...");
 
 	tss->_feedback_buffer_thread_main();
 }
@@ -587,6 +631,8 @@ void TextureStreaming::_texture_reload_thread_func(void *p_udata) {
 	Thread::set_name("TextureStreaming I/O");
 
 	TextureStreaming *tss = static_cast<TextureStreaming *>(p_udata);
+
+	print_line("Texture Streaming i/o thread starting...");
 
 	tss->_texture_reload_thread_main();
 }
