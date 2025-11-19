@@ -326,7 +326,11 @@ RID TextureStreaming::feedback_buffer_get_uniform_rid() {
 		return _buffer->buffer;
 	}
 
-	WARN_PRINT("Failed to get feedback buffer uniform RID.");
+	if (setting_streaming_is_enabled) {
+		WARN_PRINT("TextureStreaming feedback_buffer_get_uniform_rid: No valid feedback buffer available, but streaming is enabled.");
+	} else {
+		// Streaming is disabled, so this is expected.
+	}
 
 	return RID();
 }
