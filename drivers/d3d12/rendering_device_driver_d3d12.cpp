@@ -1289,6 +1289,27 @@ bool RenderingDeviceDriverD3D12::_unordered_access_supported_by_format(DataForma
 }
 
 RDD::TextureID RenderingDeviceDriverD3D12::texture_create(const TextureFormat &p_format, const TextureView &p_view) {
+	// DUMP format and view info for debugging.
+	fprintf(stderr, "DEBUG RenderingDeviceDriverD3D12::texture_create"
+					"\tformat: %s, type: %d, size: %ux%ux%u, layers: %u, mipmaps: %u, samples: %u, usage: 0x%08ux is_resolve_buffer:%i is_discardable:%i\n"
+					"\tview format:%s swizzle: R:%u G:%u B:%u A:%u\n",
+			FORMAT_NAMES[p_format.format],
+			p_format.texture_type,
+			p_format.width,
+			p_format.height,
+			p_format.depth,
+			p_format.array_layers,
+			p_format.mipmaps,
+			p_format.samples,
+			p_format.usage_bits,
+			p_format.is_resolve_buffer,
+			p_format.is_discardable,
+			FORMAT_NAMES[p_view.format],
+			(uint32_t)p_view.swizzle_r,
+			(uint32_t)p_view.swizzle_g,
+			(uint32_t)p_view.swizzle_b,
+			(uint32_t)p_view.swizzle_a);
+
 	// Using D3D12_RESOURCE_DESC1. Thanks to the layout, it's sliceable down to D3D12_RESOURCE_DESC if needed.
 	CD3DX12_RESOURCE_DESC1 resource_desc = {};
 	resource_desc.Dimension = RD_TEXTURE_TYPE_TO_D3D12_RESOURCE_DIMENSION[p_format.texture_type];

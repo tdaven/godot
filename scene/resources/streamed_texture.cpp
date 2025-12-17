@@ -75,6 +75,8 @@ void StreamedTexture2D::texture_reload(uint32_t p_resolution) {
 		Error err = _load_data(path_to_file, _current_resolution, load_data);
 		ERR_FAIL_COND(err != OK);
 
+		fprintf(stderr, "DEBUG StreamedTexture2D::texture_reload: Reloading streamed texture %s at resolution %u\n", path_to_file.utf8().get_data(), _current_resolution);
+
 		RID new_texture = RS::get_singleton()->texture_2d_create(load_data.image);
 		RenderingServer::get_singleton()->texture_set_path(new_texture, path_to_file);
 
@@ -253,6 +255,10 @@ Error StreamedTexture2D::_load_internal(const String &p_path, bool p_load_settin
 	load_data.image.instantiate();
 	Error err = _load_data(p_path, _current_resolution, load_data);
 	ERR_FAIL_COND_V(err != OK, err);
+
+	fprintf(stderr, "DEBUG calling texture_2d_create for streamed texture %s at resolution %u\n"
+					"\timage: width %u, height %u, mipmaps %u, format %s\n",
+			p_path.utf8().get_data(), _current_resolution, load_data.width, load_data.height, load_data.image->get_mipmap_count(), Image::get_format_name(load_data.format).utf8().get_data());
 
 	RID new_texture = RS::get_singleton()->texture_2d_create(load_data.image);
 	RenderingServer::get_singleton()->texture_set_path(new_texture, p_path);
