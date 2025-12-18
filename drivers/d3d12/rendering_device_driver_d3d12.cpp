@@ -1290,9 +1290,9 @@ bool RenderingDeviceDriverD3D12::_unordered_access_supported_by_format(DataForma
 
 RDD::TextureID RenderingDeviceDriverD3D12::texture_create(const TextureFormat &p_format, const TextureView &p_view) {
 	// DUMP format and view info for debugging.
-	fprintf(stderr, "DEBUG RenderingDeviceDriverD3D12::texture_create"
-					"\tformat: %s, type: %d, size: %ux%ux%u, layers: %u, mipmaps: %u, samples: %u, usage: 0x%08ux is_resolve_buffer:%i is_discardable:%i\n"
-					"\tview format:%s swizzle: R:%u G:%u B:%u A:%u\n",
+	print_verbose(vformat("DEBUG RenderingDeviceDriverD3D12::texture_create"
+						  "\tformat: %s, type: %d, size: %ux%ux%u, layers: %u, mipmaps: %u, samples: %u, usage: 0x%08ux is_resolve_buffer:%i is_discardable:%i\n"
+						  "\tview format:%s swizzle: R:%u G:%u B:%u A:%u",
 			FORMAT_NAMES[p_format.format],
 			p_format.texture_type,
 			p_format.width,
@@ -1308,7 +1308,7 @@ RDD::TextureID RenderingDeviceDriverD3D12::texture_create(const TextureFormat &p
 			(uint32_t)p_view.swizzle_r,
 			(uint32_t)p_view.swizzle_g,
 			(uint32_t)p_view.swizzle_b,
-			(uint32_t)p_view.swizzle_a);
+			(uint32_t)p_view.swizzle_a));
 
 	// Using D3D12_RESOURCE_DESC1. Thanks to the layout, it's sliceable down to D3D12_RESOURCE_DESC if needed.
 	CD3DX12_RESOURCE_DESC1 resource_desc = {};
@@ -1427,6 +1427,10 @@ RDD::TextureID RenderingDeviceDriverD3D12::texture_create(const TextureFormat &p
 	D3D12_CLEAR_VALUE *clear_value_ptr = (resource_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) ? &clear_value : nullptr;
 	{
 		HRESULT res = E_FAIL;
+		print_verbose(vformat("barrier_capabilities.enhanced_barriers_supported: %d, cross_family_sharing: %d, relaxed_casting_available: %d",
+				barrier_capabilities.enhanced_barriers_supported,
+				cross_family_sharing,
+				relaxed_casting_available));
 		if (barrier_capabilities.enhanced_barriers_supported || (cross_family_sharing && relaxed_casting_available)) {
 			// Create with undefined layout if enhanced barriers are supported. Leave as common otherwise for interop with legacy barriers.
 			D3D12_BARRIER_LAYOUT initial_layout = barrier_capabilities.enhanced_barriers_supported ? D3D12_BARRIER_LAYOUT_UNDEFINED : D3D12_BARRIER_LAYOUT_COMMON;
