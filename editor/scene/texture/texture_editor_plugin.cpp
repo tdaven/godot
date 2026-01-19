@@ -41,8 +41,12 @@
 #include "scene/resources/atlas_texture.h"
 #include "scene/resources/compressed_texture.h"
 #include "scene/resources/dpi_texture.h"
+#include "scene/resources/gradient_texture.h"
 #include "scene/resources/image_texture.h"
 #include "scene/resources/portable_compressed_texture.h"
+#include "scene/resources/streamed_texture.h"
+#include "scene/resources/texture_rd.h"
+#include "servers/rendering/rendering_device.h"
 
 constexpr const char *texture_2d_shader_code = R"(
 shader_type canvas_item;
@@ -311,7 +315,28 @@ TexturePreview::TexturePreview(Ref<Texture2D> p_texture, bool p_show_metadata) {
 }
 
 bool EditorInspectorPluginTexture::can_handle(Object *p_object) {
-	return Object::cast_to<ImageTexture>(p_object) != nullptr || Object::cast_to<AtlasTexture>(p_object) != nullptr || Object::cast_to<CompressedTexture2D>(p_object) != nullptr || Object::cast_to<PortableCompressedTexture2D>(p_object) != nullptr || Object::cast_to<AnimatedTexture>(p_object) != nullptr || Object::cast_to<DPITexture>(p_object) != nullptr || Object::cast_to<Image>(p_object) != nullptr;
+	if (Object::cast_to<GradientTexture1D>(p_object) || Object::cast_to<GradientTexture2D>(p_object)) {
+		return false;
+	}
+
+	if (Object::cast_to<Image>(p_object) != nullptr ||
+			Object::cast_to<ImageTexture>(p_object) != nullptr ||
+			Object::cast_to<AtlasTexture>(p_object) != nullptr ||
+			Object::cast_to<CompressedTexture2D>(p_object) != nullptr ||
+			Object::cast_to<PortableCompressedTexture2D>(p_object) != nullptr ||
+			Object::cast_to<AnimatedTexture>(p_object) != nullptr ||
+			Object::cast_to<DPITexture>(p_object) != nullptr ||
+			Object::cast_to<Texture2DRD>(p_object) != nullptr ||
+			Object::cast_to<StreamedTexture2D>(p_object) != nullptr) {
+		return true;
+	}
+
+	Ref<Texture2D> texture_2d(Object::cast_to<Texture2D>(p_object));
+	if (texture_2d.is_valid()) {
+		Ref<Image> this_image = texture_2d->get_image();
+		return this_image.is_valid();
+	}
+	return false;
 }
 
 void EditorInspectorPluginTexture::parse_begin(Object *p_object) {
