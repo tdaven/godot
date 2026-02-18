@@ -254,7 +254,12 @@ TextureStreaming::TextureStreaming() {
 
 	// There is some initialization that must be done on the render thread since it interacts with RD
 	// which requires being on the render thread.
-	RenderingServer::get_singleton()->call_on_render_thread(callable_mp(this, &TextureStreaming::render_thread_specific_initialization));
+	// There is some initialization that must be done on the render thread since it interacts with RD
+	// which requires being on the render thread.
+	const String display_server_name = DisplayServer::get_singleton()->get_name();
+	if (display_server_name != "headless") {
+		RenderingServer::get_singleton()->call_on_render_thread(callable_mp(this, &TextureStreaming::render_thread_specific_initialization));
+	}
 }
 
 TextureStreaming::~TextureStreaming() {
