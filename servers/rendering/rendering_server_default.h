@@ -213,6 +213,7 @@ public:
 	FUNC1RC(Vector<Ref<Image>>, texture_3d_get, RID)
 
 	FUNC2(texture_replace, RID, RID)
+	FUNC2(texture_replace_compatible, RID, RID)
 
 	FUNC3(texture_set_size_override, RID, int, int)
 // FIXME: Disabled during Vulkan refactoring, should be ported.
