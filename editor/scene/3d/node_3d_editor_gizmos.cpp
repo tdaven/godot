@@ -267,11 +267,7 @@ void EditorNode3DGizmo::_update_bvh() {
 	if (!collision_meshes.is_empty()) {
 		for (Ref<TriangleMesh> collision_mesh : collision_meshes) {
 			if (collision_mesh.is_valid()) {
-				for (const Face3 &face : collision_mesh->get_faces()) {
-					aabb.expand_to(transform.xform(face.vertex[0]));
-					aabb.expand_to(transform.xform(face.vertex[1]));
-					aabb.expand_to(transform.xform(face.vertex[2]));
-				}
+				aabb.merge_with(transform.xform(collision_mesh->get_aabb()));
 			}
 		}
 	}
